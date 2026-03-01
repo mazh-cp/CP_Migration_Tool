@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id            String   @id @default(uuid())
+  name          String
+  sourceType    String   // asa | ftd | both
+  status        String   @default("draft") // draft | imported | parsed | mapped | validated | exported
+  currentStep   String   @default("import")
+  completedSteps String  @default("[]") // JSON array of step names
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  artifacts     RawArtifact[]
+  normalized    NormalizedData?
+  jobs          Job[]
+}
+
+model RawArtifact {
+  id          String   @id @default(uuid())
+  projectId   String
+  filename    String
+  size        Int
+  sha256      String
+  content     String?  // Stored blob - never logged
+  sourceType  String   // asa | ftd
+  uploadedAt  DateTime @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model NormalizedData {
+  id            String   @id @default(uuid())
+  projectId     String   @unique
+  objectsJson String   // JSON array
+  rulesJson   String   // JSON array
+  natJson     String   // JSON array
+  interfacesJson String
+  zonesJson   String
+  warningsJson String
+  createdAt   DateTime @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model MappingDecisionRecord {
+  id             String   @id @default(uuid())
+  projectId      String
+  entityType     String   // object | service | rule | nat | zone
+  sourceId       String
+  proposedTarget String   // JSON
+  confidenceScore Float
+  reasonsJson    String   // JSON array
+  warningsJson   String   // JSON array
+  userOverrideJson String? // JSON
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([projectId, entityType, sourceId])
+}
+
+model ValidationOverride {
+  id        String   @id @default(uuid())
+  projectId String
+  findingId String
+  acknowledgedAt DateTime @default(now())
+}
+
+model Job {
+  id          String   @id @default(uuid())
+  projectId   String
+  type        String   // parse | export
+  status      String   @default("queued") // queued | running | completed | failed
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  errorMessage String?
+  createdAt   DateTime @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  logs        JobLog[]
+}
+
+model JobLog {
+  id        String   @id @default(uuid())
+  jobId     String
+  level     String   // info | warn | error
+  message   String
+  timestamp DateTime @default(now())
+
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model AppConfig {
+  id               String   @id @default("default")
+  modelFetchMethod String   @default("default") // default | litellm
+  litellmBaseUrl   String?  // e.g. http://localhost:4000
+  litellmModel     String?  // e.g. gpt-4, ollama/llama2
+  pinHash          String?  // bcrypt hash for config protection
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+

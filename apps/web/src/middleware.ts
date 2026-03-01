@@ -1,0 +1,67 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
+
+const SESSION_SECRET = new TextEncoder().encode(
+  process.env.SESSION_SECRET || 'dev-secret-change-in-production'
+);
+const COOKIE_NAME = 'cisco2cp_session';
+
+const PUBLIC_PATHS = ['/login'];
+
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  if (pathname.startsWith('/api/auth/')) {
+    return NextResponse.next();
+  }
+
+  if (pathname === '/') {
+    const token = req.cookies.get(COOKIE_NAME)?.value;
+    if (token) {
+      try {
+        await jwtVerify(token, SESSION_SECRET);
+        return NextResponse.redirect(new URL('/dashboard', req.url));
+      } catch {
+        return NextResponse.redirect(new URL('/login', req.url));
+      }
+    }
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
+
+  if (PUBLIC_PATHS.includes(pathname)) {
+    const token = req.cookies.get(COOKIE_NAME)?.value;
+    if (token) {
+      try {
+        await jwtVerify(token, SESSION_SECRET);
+        return NextResponse.redirect(new URL('/dashboard', req.url));
+      } catch {
+        // invalid token, allow login
+      }
+    }
+    return NextResponse.next();
+  }
+
+  const token = req.cookies.get(COOKIE_NAME)?.value;
+  if (!token) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
+  try {
+    await jwtVerify(token, SESSION_SECRET);
+    return NextResponse.next();
+  } catch {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const res = NextResponse.redirect(new URL('/login', req.url));
+    res.cookies.delete(COOKIE_NAME);
+    return res;
+  }
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+};

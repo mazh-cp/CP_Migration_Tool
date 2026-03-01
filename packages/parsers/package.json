@@ -1,0 +1,17 @@
+{
+  "name": "@cisco2cp/parsers",
+  "version": "0.1.0",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.0"
+  }
+}

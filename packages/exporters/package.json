@@ -1,0 +1,18 @@
+{
+  "name": "@cisco2cp/exporters",
+  "version": "0.1.0",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cisco2cp/core": "*"
+  },
+  "devDependencies": {
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.0"
+  }
+}
