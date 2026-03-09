@@ -99,14 +99,14 @@ After=network.target
 [Service]
 Type=simple
 User=$SERVICE_USER
-WorkingDirectory=$APP_DIR
+WorkingDirectory=$APP_DIR/apps/web
+EnvironmentFile=-$APP_DIR/apps/web/.env
 Environment=NODE_ENV=production
 Environment=HOST=0.0.0.0
 Environment=PORT=$PORT
-EnvironmentFile=-$APP_DIR/apps/web/.env
-ExecStart=/usr/bin/npm run start
+ExecStart=/usr/bin/npx next start -H 0.0.0.0 -p $PORT
 Restart=on-failure
-RestartSec=5
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
@@ -125,14 +125,14 @@ systemctl daemon-reload
 systemctl enable cp-migration-tool
 systemctl restart cp-migration-tool
 
-# Wait for startup (Next.js can take 10-15s on first run)
+# Wait for startup (Next.js can take 20-30s on first run on slower VMs)
 echo "==> Waiting for app to start..."
-for i in 1 2 3 4 5 6; do
-  sleep 3
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  sleep 5
   if curl -sf "http://127.0.0.1:$PORT/health" > /dev/null 2>&1; then
     break
   fi
-  echo "    Attempt $i/6..."
+  echo "    Attempt $i/10..."
 done
 
 # Verify health
@@ -153,6 +153,12 @@ if curl -sf "http://127.0.0.1:$PORT/health" > /dev/null 2>&1; then
   echo "Service: sudo systemctl status cp-migration-tool"
   echo "Logs:    journalctl -u cp-migration-tool -f"
 else
-  echo "WARNING: Health check failed. Check logs: journalctl -u cp-migration-tool -n 50"
+  echo ""
+  echo "WARNING: Health check failed."
+  echo ""
+  echo "=== Service logs (last 40 lines) ==="
+  journalctl -u cp-migration-tool -n 40 --no-pager 2>/dev/null || true
+  echo ""
+  echo "Run for live logs: journalctl -u cp-migration-tool -f"
   exit 1
 fi
