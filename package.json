@@ -1,6 +1,6 @@
 {
-  "name": "cisco2cp",
-  "version": "0.1.0",
+  "name": "cp-migration-tool",
+  "version": "1.0.0",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -10,19 +10,29 @@
     "postinstall": "cd apps/web && prisma generate",
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "start": "cd apps/web && next start",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:unit": "turbo run test",
+    "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "db:generate": "cd apps/web && prisma generate",
     "db:push": "cd apps/web && prisma db push",
-    "db:studio": "cd apps/web && prisma studio"
+    "db:studio": "cd apps/web && prisma studio",
+    "release:check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "audit": "npm audit --production",
+    "precommit": "npm run lint && npm run typecheck"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "prettier": "^3.2.5",
     "turbo": "^2.3.0"
   },
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "npm@10.2.0"
+  "packageManager": "npm@10.2.0",
+  "dependencies": {
+    "bcryptjs": "^3.0.3"
+  }
 }

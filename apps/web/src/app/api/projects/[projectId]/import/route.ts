@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { saveArtifact } from '@/lib/upload';
 import { logger } from '@/lib/logger';
+import { requireProjectAccess } from '@/lib/project-access';
 
 const importSchema = z.object({
   sourceType: z.enum(['asa', 'ftd']),
@@ -15,6 +16,8 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params;
+  const auth = await requireProjectAccess(projectId, true);
+  if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });

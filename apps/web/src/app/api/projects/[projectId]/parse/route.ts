@@ -5,12 +5,15 @@ import { parseFtdJson, parseFtdText } from '@cisco2cp/parsers';
 import { normalizeAsa, normalizeFtd, validate } from '@cisco2cp/core';
 import { mapObjects, mapPolicy, mapNat } from '@cisco2cp/core';
 import { logger } from '@/lib/logger';
+import { requireProjectAccess } from '@/lib/project-access';
 
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params;
+  const auth = await requireProjectAccess(projectId, true);
+  if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -108,7 +111,7 @@ export async function POST(
       where: { id: projectId },
       data: {
         status: validation.hasErrors ? 'parsed' : 'mapped',
-        currentStep: 'map-objects',
+        currentStep: 'map-interfaces',
         completedSteps: JSON.stringify(['import', 'parse']),
       },
     });
@@ -124,6 +127,7 @@ export async function POST(
       objects: normalized.objects.length,
       rules: normalized.rules.length,
       nat: normalized.nat.length,
+      interfaces: normalized.interfaces.length,
       warnings: normalized.warnings.length,
       findings: validation.findings.length,
     });
@@ -133,6 +137,6 @@ export async function POST(
       data: { status: 'failed', errorMessage: String(err), finishedAt: new Date() },
     });
     logger.error({ err, projectId }, 'Parse failed');
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: 'Parse failed' }, { status: 500 });
   }
 }

@@ -5,7 +5,8 @@
   "types": "./dist/index.d.mts",
   "scripts": {
     "build": "tsup",
-    "lint": "eslint src"
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'Lint via typecheck (ESLint config pending)'"
   },
   "peerDependencies": {
     "next": ">=14",

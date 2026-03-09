@@ -7,11 +7,11 @@ export async function POST(req: Request) {
   if (!username || !password) {
     return NextResponse.json({ error: 'Username and password required' }, { status: 400 });
   }
-  const valid = await verifyCredentials(username, password);
-  if (!valid) {
+  const result = await verifyCredentials(username, password);
+  if (!result) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
   }
-  const token = await createSession(username);
+  const token = await createSession(username, result.userId, result.isAdmin);
   const cookieStore = await cookies();
   cookieStore.set(getSessionCookieName(), token, {
     httpOnly: true,

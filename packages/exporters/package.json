@@ -5,6 +5,7 @@
   "types": "./dist/index.d.mts",
   "scripts": {
     "build": "tsup",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

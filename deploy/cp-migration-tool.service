@@ -1,0 +1,17 @@
+[Unit]
+Description=CP Migration Tool - Cisco ASA/FTD to Check Point Migration
+After=network.target
+
+[Service]
+Type=simple
+User=cpmt
+WorkingDirectory=/opt/cp_migration_tool
+Environment=NODE_ENV=production
+Environment=HOST=0.0.0.0
+Environment=PORT=3000
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,28 @@
+# Gitleaks configuration for CP Migration Tool
+# Run: gitleaks detect --source . --config .gitleaks.toml
+
+title = "CP Migration Tool - Secret Detection"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey|api[_-]?secret)\s*[=:]\s*['"]?[a-zA-Z0-9_\-]{20,}['"]?'''
+
+[[rules]]
+id = "password-env"
+description = "Password in env"
+regex = '''(?i)(password|passwd|pwd)\s*[=:]\s*['"]?[^'"\s]{8,}['"]?'''
+[tests]
+paths = []
+
+[allowlist]
+paths = [
+  '.env.example',
+  'deploy/.env.production.example',
+  'apps/web/.env.example',
+  'README.md',
+  '*.md',
+]

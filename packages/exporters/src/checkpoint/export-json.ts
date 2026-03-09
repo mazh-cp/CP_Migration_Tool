@@ -42,7 +42,8 @@ export function exportToJson(input: ExportJsonInput): CheckPointJsonBundle {
   for (const d of objDecisions) {
     const target = d.proposedTarget as { type: string; name: string; members?: string[] };
     if (target.type === 'group') {
-      groups.push({ ...target, members: target.members || [] });
+      const members = (target.members || []).map((id: string) => nameById.get(id) || id);
+      groups.push({ ...target, members });
     } else if (
       target.type === 'service-tcp' ||
       target.type === 'service-udp' ||

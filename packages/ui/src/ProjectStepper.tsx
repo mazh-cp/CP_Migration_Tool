@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { clsx } from 'clsx';
-import { Check, Upload, FileSearch, Box, Shield, CheckCircle, Download } from 'lucide-react';
+import { Check, Upload, FileSearch, Box, Shield, CheckCircle, Download, Network } from 'lucide-react';
 
 const steps = [
   { id: 'import', label: 'Import', href: 'import', icon: Upload },
   { id: 'parse', label: 'Parse', href: 'parse', icon: FileSearch },
+  { id: 'map-interfaces', label: 'Map Interfaces', href: 'map/interfaces', icon: Network },
   { id: 'map-objects', label: 'Map Objects', href: 'map/objects', icon: Box },
   { id: 'map-policy', label: 'Map Policy', href: 'map/policy', icon: Shield },
   { id: 'validate', label: 'Validate', href: 'validate', icon: CheckCircle },

@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Cisco → Check Point Converter',
-  description: 'Convert Cisco ASA/FTD configs to Check Point',
+  title: 'CP Migration Tool',
+  description: 'Cisco ASA/FTD to Check Point firewall migration',
 };
 
 export default function RootLayout({

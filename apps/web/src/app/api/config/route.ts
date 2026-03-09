@@ -28,6 +28,7 @@ export async function GET() {
     modelFetchMethod: config?.modelFetchMethod ?? 'default',
     litellmBaseUrl: config?.litellmBaseUrl ?? '',
     litellmModel: config?.litellmModel ?? 'gpt-4',
+    apiKeyConfigured: !!(config?.litellmApiKey),
     configUnlocked: unlocked,
     pinRequired,
   });
@@ -42,7 +43,24 @@ export async function PUT(req: Request) {
     modelFetchMethod?: string;
     litellmBaseUrl?: string;
     litellmModel?: string;
+    litellmApiKey?: string;
   };
+
+  const updateData: {
+    modelFetchMethod?: string;
+    litellmBaseUrl?: string | null;
+    litellmModel?: string | null;
+    litellmApiKey?: string | null;
+  } = {
+    modelFetchMethod: body.modelFetchMethod ?? undefined,
+    litellmBaseUrl: body.litellmBaseUrl ?? undefined,
+    litellmModel: body.litellmModel ?? undefined,
+  };
+
+  if ('litellmApiKey' in body) {
+    updateData.litellmApiKey = body.litellmApiKey && body.litellmApiKey.trim() ? body.litellmApiKey.trim() : null;
+  }
+
   const config = await prisma.appConfig.upsert({
     where: { id: 'default' },
     create: {
@@ -50,12 +68,11 @@ export async function PUT(req: Request) {
       modelFetchMethod: body.modelFetchMethod ?? 'default',
       litellmBaseUrl: body.litellmBaseUrl ?? null,
       litellmModel: body.litellmModel ?? null,
+      litellmApiKey: body.litellmApiKey && body.litellmApiKey.trim() ? body.litellmApiKey.trim() : null,
     },
-    update: {
-      modelFetchMethod: body.modelFetchMethod ?? undefined,
-      litellmBaseUrl: body.litellmBaseUrl ?? undefined,
-      litellmModel: body.litellmModel ?? undefined,
-    },
+    update: updateData,
   });
-  return NextResponse.json(config);
+
+  const { litellmApiKey: _key, ...safeConfig } = config;
+  return NextResponse.json(safeConfig);
 }

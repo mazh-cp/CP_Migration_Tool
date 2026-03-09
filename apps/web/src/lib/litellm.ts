@@ -1,3 +1,5 @@
+import { prisma } from './prisma';
+
 /**
  * LiteLLM model fetch - uses OpenAI-compatible API exposed by LiteLLM proxy.
  * Call this when modelFetchMethod is 'litellm' to get AI completions.
@@ -6,6 +8,22 @@ export interface LiteLLMOptions {
   baseUrl: string;
   model: string;
   apiKey?: string;
+}
+
+/**
+ * Get LiteLLM config from database (server-side only).
+ * API key is never exposed to client - use this in API routes or server components.
+ */
+export async function getLiteLLMConfig(): Promise<LiteLLMOptions | null> {
+  const config = await prisma.appConfig.findUnique({ where: { id: 'default' } });
+  if (!config || config.modelFetchMethod !== 'litellm' || !config.litellmBaseUrl || !config.litellmModel) {
+    return null;
+  }
+  return {
+    baseUrl: config.litellmBaseUrl,
+    model: config.litellmModel,
+    apiKey: config.litellmApiKey ?? undefined,
+  };
 }
 
 export async function litellmCompletion(

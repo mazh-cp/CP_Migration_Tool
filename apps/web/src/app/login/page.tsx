@@ -37,7 +37,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
       <div className="w-full max-w-sm p-6 bg-slate-800 rounded-xl border border-slate-700 shadow-xl">
-        <h1 className="text-2xl font-bold text-center mb-2">Cisco → Check Point</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">Cisco to Check Point Firewall Migration Tool</h1>
         <p className="text-slate-400 text-sm text-center mb-6">
           Sign in to continue
         </p>
@@ -75,9 +75,6 @@ export default function LoginPage() {
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
-        <p className="text-slate-500 text-xs text-center mt-4">
-          Set AUTH_USERNAME and AUTH_PASSWORD in .env to configure credentials.
-        </p>
       </div>
     </div>
   );

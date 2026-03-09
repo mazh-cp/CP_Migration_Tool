@@ -5,6 +5,15 @@ data
 *.db
 .env
 .env.local
+.env.*.local
 *.log
 coverage
 .turbo
+.DS_Store
+*.tgz
+.cache
+build
+uploads
+*.sqlite
+*.sqlite3
+.gitleaks.toml.local

@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireProjectAccess } from '@/lib/project-access';
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params;
+  const auth = await requireProjectAccess(projectId);
+  if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const records = await prisma.mappingDecisionRecord.findMany({
     where: { projectId },
   });

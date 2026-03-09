@@ -2,17 +2,24 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const SESSION_SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || 'dev-secret-change-in-production'
-);
+const SESSION_SECRET = (() => {
+  const secret = process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === 'production' && (!secret || secret.length < 32)) {
+    throw new Error('SESSION_SECRET must be set and at least 32 characters in production');
+  }
+  return new TextEncoder().encode(secret || 'dev-secret-change-in-production');
+})();
 const COOKIE_NAME = 'cisco2cp_session';
 
-const PUBLIC_PATHS = ['/login'];
+const PUBLIC_PATHS = ['/login', '/health', '/ready'];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (pathname.startsWith('/api/auth/')) {
+    return NextResponse.next();
+  }
+  if (pathname === '/health' || pathname === '/ready') {
     return NextResponse.next();
   }
 

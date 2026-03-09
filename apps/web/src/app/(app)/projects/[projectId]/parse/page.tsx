@@ -8,7 +8,13 @@ export default function ParsePage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.projectId as string;
-  const [counts, setCounts] = useState<{ objects?: number; rules?: number; nat?: number; warnings?: number } | null>(null);
+  const [counts, setCounts] = useState<{
+    objects?: number;
+    rules?: number;
+    nat?: number;
+    warnings?: number;
+    interfaces?: number;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [parsed, setParsed] = useState(false);
 
@@ -22,6 +28,7 @@ export default function ParsePage() {
             objects: data.objects?.length || 0,
             rules: data.rules?.length || 0,
             nat: data.nat?.length || 0,
+            interfaces: data.interfaces?.length || 0,
             warnings: data.warnings?.length || 0,
           });
         }
@@ -70,7 +77,7 @@ export default function ParsePage() {
       )}
       {parsed && counts && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
               <div className="text-2xl font-bold text-cyan-400">{counts.objects ?? 0}</div>
               <div className="text-sm text-slate-400">Objects</div>
@@ -84,16 +91,20 @@ export default function ParsePage() {
               <div className="text-sm text-slate-400">NAT</div>
             </div>
             <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
+              <div className="text-2xl font-bold text-cyan-400">{counts.interfaces ?? 0}</div>
+              <div className="text-sm text-slate-400">Interfaces</div>
+            </div>
+            <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
               <div className="text-2xl font-bold text-amber-400">{counts.warnings ?? 0}</div>
               <div className="text-sm text-slate-400">Warnings</div>
             </div>
           </div>
           <div className="flex gap-4">
             <Link
-              href={`/projects/${projectId}/map/objects`}
+              href={`/projects/${projectId}/map/interfaces`}
               className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg"
             >
-              Proceed to Map Objects
+              Proceed to Map Interfaces
             </Link>
             <button onClick={runParse} disabled={loading} className="px-4 py-2 bg-slate-700 rounded-lg">
               Re-run Parse

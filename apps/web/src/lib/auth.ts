@@ -1,22 +1,30 @@
 import { SignJWT, jwtVerify } from 'jose';
+import { prisma } from './prisma';
+import bcrypt from 'bcryptjs';
 
 const SESSION_SECRET = new TextEncoder().encode(
   process.env.SESSION_SECRET || 'dev-secret-change-in-production'
 );
 const COOKIE_NAME = 'cisco2cp_session';
 
-export async function createSession(username: string): Promise<string> {
-  return new SignJWT({ username })
+export type SessionUser = { username: string; userId?: string; isAdmin?: boolean };
+
+export async function createSession(username: string, userId?: string, isAdmin?: boolean): Promise<string> {
+  return new SignJWT({ username, userId: userId ?? null, isAdmin: isAdmin ?? false })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('7d')
     .setIssuedAt()
     .sign(SESSION_SECRET);
 }
 
-export async function verifySession(token: string): Promise<{ username: string } | null> {
+export async function verifySession(token: string): Promise<SessionUser | null> {
   try {
     const { payload } = await jwtVerify(token, SESSION_SECRET);
-    return { username: payload.username as string };
+    return {
+      username: payload.username as string,
+      userId: (payload.userId as string) ?? undefined,
+      isAdmin: (payload.isAdmin as boolean) ?? false,
+    };
   } catch {
     return null;
   }
@@ -26,13 +34,23 @@ export function getSessionCookieName() {
   return COOKIE_NAME;
 }
 
-export async function verifyCredentials(username: string, password: string): Promise<boolean> {
+/** Admin = env AUTH_USERNAME, has full access to all projects */
+export function isEnvAdmin(username: string): boolean {
+  const envUser = process.env.AUTH_USERNAME;
+  return !!(envUser && username === envUser);
+}
+
+export async function verifyCredentials(username: string, password: string): Promise<{ userId?: string; isAdmin: boolean } | null> {
   const envUser = process.env.AUTH_USERNAME;
   const envPass = process.env.AUTH_PASSWORD;
-  if (envUser && envPass) {
-    return username === envUser && password === envPass;
+  if (envUser && envPass && username === envUser && password === envPass) {
+    return { isAdmin: true };
   }
-  return false;
+  const user = await prisma.user.findUnique({ where: { username } });
+  if (!user) return null;
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) return null;
+  return { userId: user.id, isAdmin: false };
 }
 
 export async function verifyPin(pin: string): Promise<boolean> {

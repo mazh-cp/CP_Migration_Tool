@@ -5,7 +5,7 @@ export default function DashboardPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
       <p className="text-slate-400 mb-6">
-        Welcome to the Cisco ASA/FTD to Check Point conversion tool. Create a project to get started.
+        Welcome to the Cisco to Check Point Firewall Migration Tool. Create a project to get started.
       </p>
       <Link
         href="/projects/new"

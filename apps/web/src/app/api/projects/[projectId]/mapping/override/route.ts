@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { requireProjectAccess } from '@/lib/project-access';
 
 const overrideSchema = z.object({
   entityType: z.string(),
@@ -14,6 +15,9 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params;
+  const auth = await requireProjectAccess(projectId, true);
+  if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const body = await req.json();
   const { entityType, sourceId, proposedTarget, notes } = overrideSchema.parse(body);
 

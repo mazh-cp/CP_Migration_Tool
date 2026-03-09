@@ -1,8 +1,36 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { validateCheckPointObject } from '@/lib/checkpoint-format';
+import { requireProjectAccess } from '@/lib/project-access';
 import { mapObjects, mapPolicy, validate } from '@cisco2cp/core';
 import type { NormalizedObject, NormalizedPolicyRule } from '@cisco2cp/core';
+
+const fixSchema = z.object({
+  fixes: z.array(
+    z.union([
+      z.object({
+        findingId: z.string(),
+        ruleId: z.string(),
+        missingObjectId: z.string(),
+        fixType: z.enum(['create_placeholder', 'replace_with_any']),
+      }),
+      z.object({
+        findingId: z.string(),
+        ruleId: z.string(),
+        missingObjectId: z.string(),
+        fixType: z.literal('create_custom'),
+        object: z.object({
+          type: z.enum(['host', 'network', 'range', 'fqdn']),
+          name: z.string(),
+          value: z.string().optional(),
+          rangeFrom: z.string().optional(),
+          rangeTo: z.string().optional(),
+        }),
+      }),
+    ])
+  ),
+});
 
 const ANY_OBJECT_ID = 'any-00000000-0000-0000-0000-000000000000';
 const ANY_OBJECT: NormalizedObject = {
@@ -23,18 +51,19 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params;
-  const body = (await req.json()) as {
-    fixes: Array<
-      | { findingId: string; ruleId: string; missingObjectId: string; fixType: 'create_placeholder' | 'replace_with_any' }
-      | {
-          findingId: string;
-          ruleId: string;
-          missingObjectId: string;
-          fixType: 'create_custom';
-          object: { type: 'host' | 'network' | 'range' | 'fqdn'; name: string; value?: string; rangeFrom?: string; rangeTo?: string };
-        }
-    >;
-  };
+  const auth = await requireProjectAccess(projectId, true);
+  if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  let body: z.infer<typeof fixSchema>;
+  try {
+    const raw = await req.json();
+    body = fixSchema.parse(raw);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid request', details: err.errors }, { status: 400 });
+    }
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
 
   const data = await prisma.normalizedData.findUnique({
     where: { projectId },

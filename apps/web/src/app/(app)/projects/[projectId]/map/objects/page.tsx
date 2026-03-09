@@ -95,7 +95,7 @@ export default function MapObjectsPage() {
         >
           Next: Map Policy
         </Link>
-        <Link href={`/projects/${projectId}/parse`} className="px-4 py-2 bg-slate-700 rounded-lg">
+        <Link href={`/projects/${projectId}/map/interfaces`} className="px-4 py-2 bg-slate-700 rounded-lg">
           Back
         </Link>
       </div>

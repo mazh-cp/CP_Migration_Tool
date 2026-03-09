@@ -7,26 +7,55 @@ import Link from 'next/link';
 interface MappingDecision {
   entityType: string;
   sourceId: string;
-  proposedTarget: { name: string; action: string; source?: string[]; destination?: string[] };
+  proposedTarget: { name: string; action?: string; source?: string[]; destination?: string[]; [k: string]: unknown };
   confidenceScore: number;
   warnings: string[];
+}
+
+const ANY_NET_ID = '__ANY_NETWORK__';
+const ANY_SVC_ID = '__ANY_SERVICE__';
+
+function buildNameById(
+  objects: Array<{ id: string; name: string }>,
+  objectMappings: Array<{ sourceId: string; proposedTarget: { name: string } }>
+): Map<string, string> {
+  const map = new Map<string, string>();
+  map.set(ANY_NET_ID, 'Any');
+  map.set(ANY_SVC_ID, 'Any');
+  for (const obj of objects) {
+    map.set(obj.id, obj.name);
+  }
+  for (const m of objectMappings) {
+    if (m.proposedTarget?.name) {
+      map.set(m.sourceId, m.proposedTarget.name);
+    }
+  }
+  return map;
 }
 
 export default function MapPolicyPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const [rules, setRules] = useState<Array<{ id: string; name?: string }>>([]);
-  const [mappings, setMappings] = useState<MappingDecision[]>([]);
+  const [objects, setObjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [allMappings, setAllMappings] = useState<MappingDecision[]>([]);
 
   useEffect(() => {
     Promise.all([
       fetch(`/api/projects/${projectId}/normalized`).then((r) => r.json()),
       fetch(`/api/projects/${projectId}/mapping`).then((r) => r.json()),
     ]).then(([norm, map]) => {
-      setRules(norm.rules || []);
-      setMappings(map.filter((m: MappingDecision) => m.entityType === 'rule'));
+      setObjects(norm.objects || []);
+      setAllMappings(map || []);
     });
   }, [projectId]);
+
+  const ruleMappings = allMappings.filter((m) => m.entityType === 'rule');
+  const objectMappings = allMappings.filter(
+    (m) => (m.entityType === 'object' || m.entityType === 'service') && m.proposedTarget?.name
+  );
+  const nameById = buildNameById(objects, objectMappings);
+  const resolveIds = (ids: string[]) =>
+    ids.map((id) => nameById.get(id) ?? id).slice(0, 5).join(', ');
 
   return (
     <div>
@@ -50,13 +79,12 @@ export default function MapPolicyPage() {
             </tr>
           </thead>
           <tbody>
-            {mappings.map((m) => (
+            {ruleMappings.map((m) => (
               <tr key={m.sourceId} className="border-t border-slate-700 hover:bg-slate-800/50">
                 <td className="p-4 font-mono">{m.proposedTarget.name}</td>
                 <td className="p-4">{m.proposedTarget.action}</td>
                 <td className="p-4 text-slate-400">
-                  {(m.proposedTarget.source || []).slice(0, 2).join(', ')} →{' '}
-                  {(m.proposedTarget.destination || []).slice(0, 2).join(', ')}
+                  {resolveIds(m.proposedTarget.source || [])} → {resolveIds(m.proposedTarget.destination || [])}
                 </td>
                 <td className="p-4">
                   <span

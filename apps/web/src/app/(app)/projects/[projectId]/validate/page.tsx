@@ -218,8 +218,8 @@ export default function ValidatePage() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm">{f.message}</div>
-                  <div className="text-xs text-slate-400 mt-1 font-mono">
-                    Rule: {f.affectedEntityRefs[0]?.slice(0, 8)}... → Missing: {f.affectedEntityRefs[1]?.slice(0, 8)}...
+                  <div className="text-xs text-slate-400 mt-1">
+                    Rule ID: {f.affectedEntityRefs[0]?.slice(0, 8)}… · Missing object ID: {f.affectedEntityRefs[1]?.slice(0, 8)}…
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
