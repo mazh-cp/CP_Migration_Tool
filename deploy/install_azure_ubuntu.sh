@@ -60,6 +60,12 @@ fi
 echo "==> Installing npm dependencies..."
 sudo -u "$SERVICE_USER" npm ci
 
+# Create data directories (required for SQLite and uploads)
+echo "==> Creating data directories..."
+mkdir -p "$APP_DIR/apps/web/data"
+mkdir -p "$APP_DIR/apps/web/data/uploads"
+chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR/apps/web/data"
+
 # Create .env from template if missing
 ENV_FILE="$APP_DIR/apps/web/.env"
 ENV_EXAMPLE="$APP_DIR/apps/web/.env.example"
@@ -97,6 +103,7 @@ WorkingDirectory=$APP_DIR
 Environment=NODE_ENV=production
 Environment=HOST=0.0.0.0
 Environment=PORT=$PORT
+EnvironmentFile=-$APP_DIR/apps/web/.env
 ExecStart=/usr/bin/npm run start
 Restart=on-failure
 RestartSec=5
@@ -118,9 +125,15 @@ systemctl daemon-reload
 systemctl enable cp-migration-tool
 systemctl restart cp-migration-tool
 
-# Wait for startup
+# Wait for startup (Next.js can take 10-15s on first run)
 echo "==> Waiting for app to start..."
-sleep 5
+for i in 1 2 3 4 5 6; do
+  sleep 3
+  if curl -sf "http://127.0.0.1:$PORT/health" > /dev/null 2>&1; then
+    break
+  fi
+  echo "    Attempt $i/6..."
+done
 
 # Verify health
 if curl -sf "http://127.0.0.1:$PORT/health" > /dev/null 2>&1; then
