@@ -14,9 +14,10 @@ const COOKIE_NAME = 'cisco2cp_session';
 const PUBLIC_PATHS = ['/login', '/health', '/ready'];
 
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  try {
+    const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith('/api/auth/')) {
+    if (pathname.startsWith('/api/auth/')) {
     return NextResponse.next();
   }
   if (pathname === '/health' || pathname === '/ready') {
@@ -66,6 +67,12 @@ export async function middleware(req: NextRequest) {
     const res = NextResponse.redirect(new URL('/login', req.url));
     res.cookies.delete(COOKIE_NAME);
     return res;
+  }
+  } catch {
+    if (req.nextUrl.pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+    return NextResponse.redirect(new URL('/login', req.url));
   }
 }
 

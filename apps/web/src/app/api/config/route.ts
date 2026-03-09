@@ -21,10 +21,11 @@ async function isConfigUnlocked(): Promise<boolean> {
 }
 
 export async function GET() {
-  const unlocked = await isConfigUnlocked();
-  const config = await prisma.appConfig.findUnique({ where: { id: 'default' } });
-  const pinRequired = !!(process.env.CONFIG_PIN);
-  return NextResponse.json({
+  try {
+    const unlocked = await isConfigUnlocked();
+    const config = await prisma.appConfig.findUnique({ where: { id: 'default' } });
+    const pinRequired = !!(process.env.CONFIG_PIN);
+    return NextResponse.json({
     modelFetchMethod: config?.modelFetchMethod ?? 'default',
     litellmBaseUrl: config?.litellmBaseUrl ?? '',
     litellmModel: config?.litellmModel ?? 'gpt-4',
@@ -32,6 +33,9 @@ export async function GET() {
     configUnlocked: unlocked,
     pinRequired,
   });
+  } catch (err) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function PUT(req: Request) {

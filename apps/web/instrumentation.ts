@@ -4,7 +4,12 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { validateEnv } = await import('./src/lib/startup-validation');
-    validateEnv();
+    try {
+      const { validateEnv } = await import('./src/lib/startup-validation');
+      validateEnv();
+    } catch (err) {
+      console.error('Startup validation failed:', err instanceof Error ? err.message : err);
+      throw err;
+    }
   }
 }
