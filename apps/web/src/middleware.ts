@@ -70,5 +70,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Exclude health/ready so they never touch auth logic and avoid "headers already sent" with not-found
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|health|ready).*)'],
 };
