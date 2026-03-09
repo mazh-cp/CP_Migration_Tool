@@ -71,10 +71,10 @@ npm run build
 PORT=3000 HOST=0.0.0.0 npm run start
 ```
 
-Or use the one-command Ubuntu installer:
+Or use the single-command Ubuntu installer (run on VM):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/install_azure_ubuntu.sh | bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/install_azure_ubuntu.sh | sudo bash
 ```
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for full details.
