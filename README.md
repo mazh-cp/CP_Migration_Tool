@@ -4,7 +4,7 @@
 
 Convert Cisco ASA and FTD configurations to Check Point equivalents. Modular, explainable, safe-by-default.
 
-**Version:** 1.0.0  
+**Version:** 1.0.2  
 **Repository:** https://github.com/mazh-cp/CP_Migration_Tool
 
 ---

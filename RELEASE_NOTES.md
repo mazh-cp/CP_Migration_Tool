@@ -1,5 +1,19 @@
 # Release Notes — CP Migration Tool
 
+## v1.0.2 (2025-03-10) — Production Fix (jose + SESSION_SECRET)
+
+### Fixes
+
+- **Internal Server Error 500:** Downgraded `jose` from v6 to v5.10.0 for Edge Runtime compatibility in Next.js middleware
+- **SESSION_SECRET validation:** Updated `.env.example` template to use a 32+ character placeholder
+- **REMOTE_INSTALL.md:** Added SESSION_SECRET troubleshooting for 500 errors
+
+### Migration
+
+Existing installations: pull latest, `npm ci`, rebuild, restart. No .env changes needed if SESSION_SECRET was already 32+ chars.
+
+---
+
 ## v1.0.1 (2025-03-10) — Stable Remote Install
 
 ### Fixes

@@ -48,7 +48,7 @@ sudo systemctl restart cp-migration-tool
 | Login fails | Check `journalctl -u cp-migration-tool -n 30` for "Login failed" — shows `authEnvSet`, `expectedUser` |
 | authEnvSet: false | .env not loading; ensure `start.sh` uses `node load-env.js` (run reinstall) |
 | Password with $ | Use quotes in .env: `AUTH_PASSWORD='CPwin$$'` |
-| 500 errors | See journalctl; ensure data dir exists: `sudo mkdir -p /opt/cp_migration_tool/apps/web/data` |
+| 500 errors | See journalctl. Ensure SESSION_SECRET in .env is 32+ chars; data dir exists: `sudo mkdir -p /opt/cp_migration_tool/apps/web/data` |
 | Health check fails | `sudo systemctl status cp-migration-tool`; check logs |
 
 ## Service Commands

@@ -2,6 +2,7 @@
 # =============================================================================
 # CP Migration Tool — Single-command Ubuntu/Azure installer
 # Run: curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/install_azure_ubuntu.sh | sudo bash
+# v1.0.2 - Ubuntu 22.04/24.04, Node 20 LTS
 # Compatible with Ubuntu 22.04 and 24.04
 # =============================================================================
 set -e

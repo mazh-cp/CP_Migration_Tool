@@ -16,7 +16,7 @@
     "@cisco2cp/parsers": "*",
     "@cisco2cp/ui": "*",
     "@prisma/client": "^5.22.0",
-    "jose": "^6.1.3",
+    "jose": "^5.10.0",
     "jszip": "^3.10.1",
     "next": "^15.0.3",
     "pino": "^9.5.0",
