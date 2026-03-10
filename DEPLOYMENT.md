@@ -77,13 +77,14 @@ Optional: `CONFIG_PIN`, `UPLOAD_DIR`, `MAX_UPLOAD_MB`, `LOG_LEVEL`.
 
 ## Troubleshooting Login
 
-If login fails after changing the password:
+1. **Verify .env:** `sudo cat /opt/cp_migration_tool/apps/web/.env`
+2. **Passwords with $, &, !** — use quotes: `AUTH_PASSWORD='MyPass$123'`
+3. **Use nano** (not sed): `sudo nano /opt/cp_migration_tool/apps/web/.env`
+4. **Restart:** `sudo systemctl restart cp-migration-tool`
+5. **Check logs:** `journalctl -u cp-migration-tool -n 30` — shows `authEnvSet`, `expectedUser` for login failures
+6. **Reinstall** if env not loading: run the curl install command again
 
-1. **Verify .env:** `sudo cat /opt/cp_migration_tool/apps/web/.env` (confirm AUTH_USERNAME, AUTH_PASSWORD)
-2. **Use nano** (not sed) for passwords with special characters: `sudo nano /opt/cp_migration_tool/apps/web/.env`
-3. **Restart:** `sudo systemctl restart cp-migration-tool`
-4. **Clear browser cookies** or use incognito
-5. **Reinstall** to get the startup wrapper that loads .env correctly: run the curl install command again
+See [REMOTE_INSTALL.md](REMOTE_INSTALL.md) for full remote troubleshooting.
 
 ---
 

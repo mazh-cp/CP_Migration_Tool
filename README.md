@@ -77,7 +77,7 @@ Or use the single-command Ubuntu installer (run on VM):
 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/install_azure_ubuntu.sh | sudo bash
 ```
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for full details.
+See [DEPLOYMENT.md](DEPLOYMENT.md) and [REMOTE_INSTALL.md](REMOTE_INSTALL.md) for details.
 
 ---
 

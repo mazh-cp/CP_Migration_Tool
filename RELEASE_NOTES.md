@@ -1,5 +1,19 @@
 # Release Notes — CP Migration Tool
 
+## v1.0.1 (2025-03-10) — Stable Remote Install
+
+### Fixes
+
+- **Login / .env loading:** Node-based `load-env.js` replaces shell sourcing — passwords with `$`, `&`, etc. work when quoted
+- **Remote install:** Clearer installer, REMOTE_INSTALL.md, diagnostic logging for login failures
+- **Docs:** .env.example note on quoting; REMOTE_INSTALL.md for remote troubleshooting
+
+### Migration
+
+Existing installations: pull latest, rebuild, restart. Ensure `.env` uses quotes for special chars: `AUTH_PASSWORD='CPwin$$'`
+
+---
+
 ## v1.0.0 (2025-03-09) — Production Release
 
 **Project:** CP Migration Tool (formerly Cisco ASA/FTD → Check Point Converter)  

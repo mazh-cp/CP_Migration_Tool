@@ -103,21 +103,9 @@ cd "$APP_DIR"
 echo "==> Building application (this may take 1-2 minutes)..."
 sudo -u "$SERVICE_USER" npm run build
 
-# Install startup wrapper (loads .env via shell - more reliable than systemd EnvironmentFile)
-echo "==> Installing startup wrapper..."
-cat > "$APP_DIR/apps/web/start.sh" << 'STARTEOF'
-#!/bin/bash
-cd "$(dirname "$0")"
-set -a
-[ -f .env ] && . ./.env
-set +a
-export NODE_ENV=production
-export HOST=0.0.0.0
-export PORT=${PORT:-3000}
-exec npx next start -H 0.0.0.0 -p ${PORT:-3000}
-STARTEOF
-chmod +x "$APP_DIR/apps/web/start.sh"
-chown "$SERVICE_USER:$SERVICE_USER" "$APP_DIR/apps/web/start.sh"
+# Ensure startup wrapper is executable
+chmod +x "$APP_DIR/apps/web/start.sh" 2>/dev/null || true
+chown "$SERVICE_USER:$SERVICE_USER" "$APP_DIR/apps/web/start.sh" 2>/dev/null || true
 
 # Install systemd service
 echo "==> Installing systemd service..."

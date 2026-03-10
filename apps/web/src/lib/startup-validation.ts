@@ -12,7 +12,7 @@ export function validateEnv(): void {
 
   const hasAuth = process.env.AUTH_USERNAME && process.env.AUTH_PASSWORD;
   if (!hasAuth) {
-    errors.push('AUTH_USERNAME and AUTH_PASSWORD are required for authentication');
+    errors.push('AUTH_USERNAME and AUTH_PASSWORD are required (set in apps/web/.env)');
   }
 
   if (isProd) {
