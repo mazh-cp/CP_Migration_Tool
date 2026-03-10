@@ -11,6 +11,14 @@ export async function POST(req: Request) {
     }
     const result = await verifyCredentials(username, password);
     if (!result) {
+      logger.warn(
+        {
+          username,
+          authEnvSet: !!(process.env.AUTH_USERNAME && process.env.AUTH_PASSWORD),
+          expectedUser: process.env.AUTH_USERNAME || '(not set)',
+        },
+        'Login failed'
+      );
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
     const token = await createSession(username, result.userId, result.isAdmin);
