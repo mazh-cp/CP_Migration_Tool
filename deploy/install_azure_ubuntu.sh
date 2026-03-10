@@ -85,12 +85,15 @@ if [ ! -f "$ENV_FILE" ]; then
   SECRET=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64 2>/dev/null || echo "your-secret-key-min-32-chars-please-change")
   sed -i "s|SESSION_SECRET=.*|SESSION_SECRET=$SECRET|" "$ENV_FILE"
   sed -i "s|NODE_ENV=.*|NODE_ENV=production|" "$ENV_FILE"
+  # Allow session cookie over HTTP (no HTTPS on VM by default)
+  grep -q '^COOKIE_SECURE=' "$ENV_FILE" || echo "COOKIE_SECURE=false" >> "$ENV_FILE"
   # Use absolute path for SQLite
   sed -i "s|DATABASE_URL=.*|DATABASE_URL=file:$APP_DIR/apps/web/data/dev.db|" "$ENV_FILE"
   chown "$SERVICE_USER:$SERVICE_USER" "$ENV_FILE"
   echo "    Generated SESSION_SECRET automatically"
 else
   echo "==> .env exists, preserving (ensure DATABASE_URL, AUTH_*, SESSION_SECRET are set)"
+  grep -q '^COOKIE_SECURE=' "$ENV_FILE" || echo "COOKIE_SECURE=false" >> "$ENV_FILE"
 fi
 
 # Ensure NODE_ENV=production in service (override any .env)

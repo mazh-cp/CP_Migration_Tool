@@ -23,9 +23,10 @@ export async function POST(req: Request) {
     .setIssuedAt()
     .sign(PIN_SECRET);
   const cookieStore = await cookies();
+  const secureCookie = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
   cookieStore.set(PIN_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: secureCookie,
     sameSite: 'lax',
     maxAge: 60 * 60,
     path: '/',

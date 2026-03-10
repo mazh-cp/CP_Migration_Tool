@@ -11,11 +11,15 @@ export async function POST(req: Request) {
     }
     const result = await verifyCredentials(username, password);
     if (!result) {
+      const envUser = process.env.AUTH_USERNAME;
+      const envPass = process.env.AUTH_PASSWORD;
       logger.warn(
         {
           username,
-          authEnvSet: !!(process.env.AUTH_USERNAME && process.env.AUTH_PASSWORD),
-          expectedUser: process.env.AUTH_USERNAME || '(not set)',
+          authEnvSet: !!(envUser && envPass),
+          expectedUser: envUser || '(not set)',
+          expectedPasswordLength: envPass ? envPass.length : 0,
+          receivedPasswordLength: password ? password.length : 0,
         },
         'Login failed'
       );
@@ -23,9 +27,10 @@ export async function POST(req: Request) {
     }
     const token = await createSession(username, result.userId, result.isAdmin);
     const cookieStore = await cookies();
+    const secureCookie = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
     cookieStore.set(getSessionCookieName(), token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: secureCookie,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',

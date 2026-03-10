@@ -49,6 +49,8 @@ sudo systemctl restart cp-migration-tool
 | authEnvSet: false | .env not loading; ensure `start.sh` uses `node load-env.js` (run reinstall) |
 | Password with $ | Use quotes in .env: `AUTH_PASSWORD='CPwin$$'` |
 | 500 errors | See journalctl. Ensure SESSION_SECRET in .env is 32+ chars; data dir exists: `sudo mkdir -p /opt/cp_migration_tool/apps/web/data` |
+| Login OK but redirects to login | Using HTTP (not HTTPS). Add `COOKIE_SECURE=false` to .env and restart |
+| "Invalid credentials" (authEnvSet: true) | Run `curl http://YOUR-VM:3000/api/auth/diagnostic` — check `authPasswordLength`; must match password you type (e.g. "changeme" = 8) |
 | Health check fails | `sudo systemctl status cp-migration-tool`; check logs |
 
 ## Service Commands
