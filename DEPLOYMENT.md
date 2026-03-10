@@ -57,7 +57,8 @@ Optional: `CONFIG_PIN`, `UPLOAD_DIR`, `MAX_UPLOAD_MB`, `LOG_LEVEL`.
 
 ## Post-Install
 
-1. **Change credentials:** Edit `/opt/cp_migration_tool/apps/web/.env` — set `AUTH_USERNAME`, `AUTH_PASSWORD`
+1. **Default login:** `admin` / `changeme` (change immediately)
+2. **Change credentials:** Edit `/opt/cp_migration_tool/apps/web/.env` — set `AUTH_USERNAME`, `AUTH_PASSWORD`
 2. **Restart:** `sudo systemctl restart cp-migration-tool`
 3. **Verify:** `curl http://localhost:3000/health` → `{"status":"ok"}`
 4. **Access:** `http://<VM-PUBLIC-IP>:3000`
@@ -71,6 +72,18 @@ Optional: `CONFIG_PIN`, `UPLOAD_DIR`, `MAX_UPLOAD_MB`, `LOG_LEVEL`.
 | `sudo systemctl status cp-migration-tool` | Status |
 | `sudo systemctl restart cp-migration-tool` | Restart |
 | `journalctl -u cp-migration-tool -f` | Logs |
+
+---
+
+## Troubleshooting Login
+
+If login fails after changing the password:
+
+1. **Verify .env:** `sudo cat /opt/cp_migration_tool/apps/web/.env` (confirm AUTH_USERNAME, AUTH_PASSWORD)
+2. **Use nano** (not sed) for passwords with special characters: `sudo nano /opt/cp_migration_tool/apps/web/.env`
+3. **Restart:** `sudo systemctl restart cp-migration-tool`
+4. **Clear browser cookies** or use incognito
+5. **Reinstall** to get the startup wrapper that loads .env correctly: run the curl install command again
 
 ---
 

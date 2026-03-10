@@ -103,6 +103,22 @@ cd "$APP_DIR"
 echo "==> Building application (this may take 1-2 minutes)..."
 sudo -u "$SERVICE_USER" npm run build
 
+# Install startup wrapper (loads .env via shell - more reliable than systemd EnvironmentFile)
+echo "==> Installing startup wrapper..."
+cat > "$APP_DIR/apps/web/start.sh" << 'STARTEOF'
+#!/bin/bash
+cd "$(dirname "$0")"
+set -a
+[ -f .env ] && . ./.env
+set +a
+export NODE_ENV=production
+export HOST=0.0.0.0
+export PORT=${PORT:-3000}
+exec npx next start -H 0.0.0.0 -p ${PORT:-3000}
+STARTEOF
+chmod +x "$APP_DIR/apps/web/start.sh"
+chown "$SERVICE_USER:$SERVICE_USER" "$APP_DIR/apps/web/start.sh"
+
 # Install systemd service
 echo "==> Installing systemd service..."
 cat > /etc/systemd/system/cp-migration-tool.service << EOF
@@ -114,11 +130,8 @@ After=network.target
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$APP_DIR/apps/web
-Environment=NODE_ENV=production
-Environment=HOST=0.0.0.0
 Environment=PORT=$PORT
-EnvironmentFile=-$ENV_FILE
-ExecStart=/usr/bin/npx next start -H 0.0.0.0 -p $PORT
+ExecStart=$APP_DIR/apps/web/start.sh
 Restart=on-failure
 RestartSec=10
 
