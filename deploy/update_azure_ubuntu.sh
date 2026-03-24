@@ -1,12 +1,21 @@
 #!/bin/bash
 # =============================================================================
 # Migrator — Single-command Production Updater (Ubuntu/Azure)
-# Run:
+#
+# Documented release: v1.1.0 (see CHANGELOG.md / Git tag). Deployed code follows BRANCH below.
+#
+# Run (latest main):
 #   curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/update_azure_ubuntu.sh | sudo bash
-# Optional:
-#   BRANCH=main PORT=3000 APP_DIR=/opt/cp_migration_tool SERVICE_NAME=cp-migration-tool curl -fsSL ... | sudo bash
+#
+# Run (pinned tag):
+#   curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.1.0/deploy/update_azure_ubuntu.sh | sudo bash
+#
+# Optional env:
+#   BRANCH=main PORT=3000 APP_DIR=/opt/cp_migration_tool SERVICE_NAME=cp-migration-tool
 # =============================================================================
 set -euo pipefail
+
+DOC_RELEASE_TAG="${DOC_RELEASE_TAG:-v1.1.0}"
 
 APP_DIR="${APP_DIR:-/opt/cp_migration_tool}"
 SERVICE_USER="${SERVICE_USER:-cpmt}"
@@ -47,6 +56,7 @@ echo ""
 echo "=============================================="
 echo "  Migrator — Production Update"
 echo "=============================================="
+echo "  Doc release:  $DOC_RELEASE_TAG (changelog tag; code = origin/$BRANCH)"
 echo "  App dir:      $APP_DIR"
 echo "  Branch:       $BRANCH"
 echo "  Service:      $SERVICE_NAME"
@@ -82,8 +92,20 @@ echo "==> Updating repository..."
 cd "$APP_DIR"
 sudo -u "$SERVICE_USER" git fetch --all --tags --prune
 sudo -u "$SERVICE_USER" git checkout -f "$BRANCH"
-sudo -u "$SERVICE_USER" git reset --hard "origin/$BRANCH"
+# Branch: origin/main. Tag after fetch: v1.1.0 (no origin/ prefix).
+if sudo -u "$SERVICE_USER" git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+  sudo -u "$SERVICE_USER" git reset --hard "origin/$BRANCH"
+elif sudo -u "$SERVICE_USER" git show-ref --verify --quiet "refs/tags/$BRANCH"; then
+  sudo -u "$SERVICE_USER" git reset --hard "refs/tags/$BRANCH"
+else
+  echo "ERROR: Not a remote branch origin/$BRANCH or tag $BRANCH. Fetch failed or name typo?"
+  exit 1
+fi
 chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"
+
+DEPLOY_SHA="$(sudo -u "$SERVICE_USER" git -C "$APP_DIR" rev-parse --short HEAD)"
+DEPLOY_FULL_SHA="$(sudo -u "$SERVICE_USER" git -C "$APP_DIR" rev-parse HEAD)"
+echo "==> Checked out $BRANCH @ $DEPLOY_SHA ($DEPLOY_FULL_SHA)"
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "ERROR: Missing $ENV_FILE"
@@ -166,6 +188,7 @@ if curl -sf "http://127.0.0.1:${HEALTH_PORT}/health" >/dev/null 2>&1; then
   echo "  SUCCESS — Production update completed"
   echo "=============================================="
   echo ""
+  echo "  Git:     $BRANCH @ $DEPLOY_SHA"
   echo "  App:     http://<YOUR-VM-IP>:${HEALTH_PORT}"
   echo "  Health:  http://127.0.0.1:${HEALTH_PORT}/health"
   echo "  Ready:   http://127.0.0.1:${HEALTH_PORT}/ready"

@@ -43,13 +43,21 @@ sudo systemctl restart cp-migration-tool
 
 ## One-Command Production Upgrade
 
-Pulls latest `main`, runs `npm ci`, Prisma, build, **refreshes the systemd unit** (avoids stale `ExecStart`), and restarts the service:
+Pulls latest `main`, runs `npm ci`, Prisma, build, **refreshes the systemd unit** (avoids stale `ExecStart`), and restarts the service.
+
+**Latest `main`:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/update_azure_ubuntu.sh | sudo bash
 ```
 
-Optional: `BRANCH=main PORT=3000` if you need non-default branch or port for the unit file (health checks also read `PORT` from `apps/web/.env` when set).
+**Pinned release (example v1.1.0):** set `BRANCH` to the tag so the server checkout matches the release:
+
+```bash
+BRANCH=v1.1.0 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.1.0/deploy/update_azure_ubuntu.sh | sudo bash
+```
+
+Optional: `BRANCH=main PORT=3000` if you need non-default branch or port for the unit file (health checks also read `PORT` from `apps/web/.env` when set). Override doc banner: `DOC_RELEASE_TAG=v1.1.0`.
 
 ## Troubleshooting
 

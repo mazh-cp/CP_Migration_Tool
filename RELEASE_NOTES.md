@@ -1,5 +1,31 @@
 # Release Notes — Migrator
 
+## v1.1.0 (2025-03-24) — Validate fixes, FQDN mapping, proxy-safe API
+
+### Highlights
+
+- **Validate:** Rename duplicate objects and add service ports from the UI; new `patch-object` API
+- **Map Objects:** FQDN sources map to Check Point **fqdn** (re-parse projects to refresh mappings)
+- **Production:** Import/parse tolerate HTML error pages from reverse proxies; remote install docs for body limits and `MAX_UPLOAD_MB`
+
+### Upgrade (Ubuntu VM)
+
+**Latest `main`:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/update_azure_ubuntu.sh | sudo bash
+```
+
+**Pinned to this release** (checkout tag `v1.1.0` on the server):
+
+```bash
+BRANCH=v1.1.0 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.1.0/deploy/update_azure_ubuntu.sh | sudo bash
+```
+
+After deploy, **re-run Parse** on projects that should pick up FQDN mapping changes.
+
+---
+
 ## v1.0.2 (2025-03-10) — Production Fix (jose + SESSION_SECRET)
 
 ### Fixes

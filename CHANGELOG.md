@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.0] - 2025-03-24
+
+### Added
+
+- **Validate:** Actions for **DUPLICATE_NAME** (rename) and **SERVICE_NO_PORT** (add port); `POST /api/projects/[projectId]/patch-object`
+- **Web:** Safe API JSON parsing when proxies return HTML (`read-api-json`) on import/parse
+- **Docs:** `REMOTE_INSTALL.md` — large uploads, `MAX_UPLOAD_MB`, Nginx vs direct `:3000`
+
+### Changed
+
+- **Core:** FQDN normalized objects map to Check Point **`fqdn`** target (not host); CSV/CLI export include FQDN domain
+- **Validate:** “Other findings” hints clarified (not clickable links)
+
+### Fixed
+
+- Production JSON parse errors from HTML error pages (nginx body limits, gateways)
+
 ## [0.9.0-rc1] - 2025-03-06
 
 ### Added
