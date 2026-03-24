@@ -54,12 +54,15 @@ export default function ParsePage() {
     | { ok: true; counts?: Record<string, number> }
     | { ok: false; error: string }
   > {
-    const maxAttempts = 450;
+    const maxAttempts = 1800;
     const intervalMs = 2000;
     for (let i = 0; i < maxAttempts; i++) {
       if (i > 0) await new Promise((r) => setTimeout(r, intervalMs));
+      const elapsedSec = Math.round((i * intervalMs) / 1000);
+      const elapsedMin = Math.floor(elapsedSec / 60);
+      const remSec = elapsedSec % 60;
       setLoadingHint(
-        `Parsing… (${Math.round((i * intervalMs) / 1000)}s elapsed — large configs can take several minutes)`
+        `Parsing… ${elapsedMin > 0 ? `${elapsedMin}m ` : ''}${remSec}s elapsed — very large policies may take 30–60+ minutes. Watch server logs for progress (parse → normalize → map → persist).`
       );
       const r = await fetch(`/api/projects/${projectId}/status?jobId=${encodeURIComponent(jobId)}`);
       const st = await readApiJson<{
@@ -84,7 +87,7 @@ export default function ParsePage() {
     return {
       ok: false,
       error:
-        'Timed out waiting for parse (15 min). The job may still be running — check server logs (journalctl -u cp-migration-tool -f) or retry.',
+        'Timed out waiting for parse (60 min). The job may still be running — check journalctl -u cp-migration-tool -f for phase timings (parse, normalize, persist_mappings). Refresh this page later or retry.',
     };
   }
 
