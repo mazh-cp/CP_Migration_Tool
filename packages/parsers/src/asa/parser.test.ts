@@ -30,4 +30,35 @@ describe('ASA Parser', () => {
     expect(acl?.action).toBe('permit');
     expect(acl?.proto).toBe('tcp');
   });
+
+  it('parses access-list advanced (FTD/FMC) with ifc and rule-id', () => {
+    const line =
+      'access-list CSM_FW_ACL_ advanced permit ip ifc ACCESS-VRF any ifc Global-Routing object-group FMC_INLINE_dst_rule_268435666 rule-id 268435666';
+    const result = parseASA(line);
+    const acl = result.statements.find(
+      (s) => (s as { type: string }).type === 'access-list-extended'
+    ) as { name: string; action: string; src: string; dst: string };
+    expect(acl?.name).toBe('CSM_FW_ACL_#268435666');
+    expect(acl?.action).toBe('permit');
+    expect(acl?.src).toContain('ACCESS-VRF');
+    expect(acl?.dst).toContain('Global-Routing');
+  });
+
+  it('parses access-list advanced trust with two object-groups', () => {
+    const line =
+      'access-list CSM_FW_ACL_ advanced trust ip object-group A object-group B rule-id 1 event-log flow-end';
+    const result = parseASA(line);
+    const acl = result.statements.find(
+      (s) => (s as { type: string }).type === 'access-list-extended'
+    ) as { action: string; src: string; dst: string };
+    expect(acl?.action).toBe('permit');
+    expect(acl?.src).toBe('object-group A');
+    expect(acl?.dst).toBe('object-group B');
+  });
+
+  it('ignores access-list remark without error', () => {
+    const result = parseASA('access-list CSM_FW_ACL_ remark rule-id 1: RULE: test');
+    expect(result.warnings).toHaveLength(0);
+    expect(result.statements).toHaveLength(0);
+  });
 });

@@ -73,4 +73,20 @@ describe('ASA normalization - referential integrity', () => {
     expect(result.ok).toBe(true);
     expect(result.missing).toHaveLength(0);
   });
+
+  it('normalizes FTD-style access-list advanced ACEs', () => {
+    const cfg = `
+object-group network G1
+ network-object host 10.0.0.1
+object-group network G2
+ network-object host 10.0.0.2
+access-list CSM_FW_ACL_ advanced permit ip object-group G1 object-group G2 rule-id 99
+`;
+    const parsed = parseASA(cfg);
+    const normalized = normalizeAsa(parsed.statements);
+    expect(normalized.rules).toHaveLength(1);
+    expect(normalized.rules[0]?.name).toBe('CSM_FW_ACL_#99');
+    const result = validateReferentialIntegrity(normalized);
+    expect(result.ok).toBe(true);
+  });
 });

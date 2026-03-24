@@ -85,16 +85,27 @@ export function normalizeAsa(statements: ASAAstNode[]): NormalizedResult {
   return { objects, rules, nat, interfaces, zones, warnings };
 }
 
+/** Strip `object-group NAME` / `object NAME` so registry resolves by group/object id. */
+function unwrapAceNetworkRef(ref: string): string {
+  const t = ref.trim();
+  const og = t.match(/^object-group\s+(\S+)$/i);
+  if (og?.[1]) return og[1];
+  const ob = t.match(/^object\s+(\S+)$/i);
+  if (ob?.[1]) return ob[1];
+  return t;
+}
+
 function resolveNetworkRef(ref: string): string {
-  const id = registry.resolveByName(ref);
+  const key = unwrapAceNetworkRef(ref);
+  const id = registry.resolveByName(key);
   if (id) return id;
   // Inline host/subnet in rule - create placeholder via registry (e.g. "host 1.2.3.4" or object name not yet seen)
   // For unknown refs we must not create random IDs - create placeholder network
-  const key = `net:name:${ref.toLowerCase().replace(/\s+/g, ' ').trim()}`;
-  return registry.createOrGetNetworkObject(key, {
+  const nameKey = `net:name:${key.toLowerCase().replace(/\s+/g, ' ').trim()}`;
+  return registry.createOrGetNetworkObject(nameKey, {
     type: 'host',
-    name: ref,
-    value: ref.includes('.') ? ref : '0.0.0.0',
+    name: key,
+    value: key.includes('.') ? key : '0.0.0.0',
   });
 }
 
@@ -273,14 +284,16 @@ function resolveServiceFromAccessList(st: AccessListExtended): string[] {
 
 function normalizeAccessList(st: AccessListExtended): NormalizedPolicyRule | null {
   const id = createId();
+  const srcKey = st.src?.trim() || '';
+  const dstKey = st.dst?.trim() || '';
   const srcRefs =
-    !st.src || st.src.toLowerCase() === 'any'
+    !srcKey || srcKey.toLowerCase() === 'any'
       ? [ANY_NET_ID]
-      : [resolveNetworkRef(st.src)];
+      : [resolveNetworkRef(srcKey)];
   const dstRefs =
-    !st.dst || st.dst.toLowerCase() === 'any'
+    !dstKey || dstKey.toLowerCase() === 'any'
       ? [ANY_NET_ID]
-      : [resolveNetworkRef(st.dst)];
+      : [resolveNetworkRef(dstKey)];
   const serviceRefs = resolveServiceFromAccessList(st);
 
   return {

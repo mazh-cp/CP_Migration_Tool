@@ -6,12 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-24
+
+### Added
+
+- **ASA text — FTD/FMC `access-list … advanced`:** Parser accepts **`advanced`** ACEs (e.g. `permit` / `deny` / **`trust`**, `ifc`, `object-group`, `rule-id`, `event-log`) and emits normalized **Map Policy** rules. **`trust`** is normalized as **allow** (same as permit).
+- **Deploy:** **`deploy/upgrade-production.sh`** — canonical curl target for production upgrades (delegates to `update_azure_ubuntu.sh`).
+- **Deploy:** **`deploy/upgrade-remote-production.sh`** — upgrade a VM from your workstation via **SSH + curl** (no local clone).
+
 ### Fixed
 
+- **Object groups:** `object-group network` / `service` parsers no longer consume the next non-member line (e.g. **`access-list`** immediately after a group), which could drop ACL statements after the last group in a file.
 - **Status / parseCounts:** SQLite `$queryRaw` can return **BigInt** for `json_array_length`; `NextResponse.json` threw *Do not know how to serialize a BigInt*. Counts are coerced to **number** in `getNormalizedCounts`.
-
 - **Parse performance:** Replaced **per-row** mapping `upsert` (could be 10k+ sequential SQLite calls) with **`deleteMany` + batched `createMany`** — large configs complete in minutes instead of stalling.
 - **Parse UI:** Poll wait extended to **60 minutes** with clearer elapsed-time hint; `journalctl` documents phase timings (`parse`, `normalize`, `persist_mappings`).
+- **Normalize:** **`object-group NAME`** / **`object NAME`** in ACE source/destination resolve by **NAME** in the object registry.
+
+### Changed
+
+- **`access-list … remark`:** Silently skipped (no parse warning).
 
 ## [1.2.0] - 2025-03-25
 

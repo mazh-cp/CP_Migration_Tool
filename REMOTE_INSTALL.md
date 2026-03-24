@@ -48,16 +48,26 @@ Pulls latest `main`, runs `npm ci`, Prisma, build, **refreshes the systemd unit*
 **Latest `main`:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/update_azure_ubuntu.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo bash
 ```
 
-**Pinned release (example v1.2.0):** set `BRANCH` to the tag so the server checkout matches the release:
+**Pinned release (v1.3.0):** set `BRANCH` to the tag so the server checkout matches the release:
 
 ```bash
-BRANCH=v1.2.0 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.2.0/deploy/update_azure_ubuntu.sh | sudo bash
+BRANCH=v1.3.0 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.0/deploy/upgrade-production.sh | sudo bash
 ```
 
-Optional: `BRANCH=main PORT=3000` if you need non-default branch or port for the unit file (health checks also read `PORT` from `apps/web/.env` when set). Override doc banner: `DOC_RELEASE_TAG=v1.2.0`.
+The legacy script `deploy/update_azure_ubuntu.sh` is equivalent. Optional: `BRANCH=main PORT=3000` for non-default branch or port (health checks also read `PORT` from `apps/web/.env`). Doc banner: `DOC_RELEASE_TAG=v1.3.0`.
+
+### Upgrade from your workstation (SSH)
+
+If the repo is cloned locally:
+
+```bash
+REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.3.0
+```
+
+Uses `curl` on the remote host; set `REPO_SLUG=org/repo` for a fork.
 
 ## Troubleshooting
 

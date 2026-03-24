@@ -1,5 +1,38 @@
 # Release Notes — Migrator
 
+## v1.3.0 (2026-03-24) — FTD/FMC advanced ACLs & production upgrade scripts
+
+### Highlights
+
+- **Parse / Map Policy:** **`access-list … advanced`** (FTD/FMC style with `ifc`, `object-group`, `rule-id`) is parsed so policies appear under Map Policy; **`trust`** ACEs map to **allow**.
+- **Parser robustness:** **`object-group`** blocks no longer swallow the following **`access-list`** line; **`remark`** lines are ignored cleanly.
+- **Normalize:** Resolves **`object-group` / `object`** tokens in rules to registry names.
+- **Operations:** **`deploy/upgrade-production.sh`** (canonical server upgrade via curl) and **`deploy/upgrade-remote-production.sh`** (SSH from laptop → curl on VM).
+
+### Upgrade (Ubuntu VM)
+
+**Pinned to v1.3.0:**
+
+```bash
+BRANCH=v1.3.0 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.0/deploy/upgrade-production.sh | sudo bash
+```
+
+**Latest `main`:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo bash
+```
+
+**From your workstation (SSH):**
+
+```bash
+REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.3.0
+```
+
+After deploy, **hard-refresh** the browser. **Re-run Parse** on projects that use FMC/FTD-style advanced ACL text.
+
+---
+
 ## v1.2.0 (2025-03-25) — Production parse reliability (504 / gateway timeouts)
 
 ### Highlights

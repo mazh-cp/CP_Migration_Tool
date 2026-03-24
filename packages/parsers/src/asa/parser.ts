@@ -70,9 +70,17 @@ function parseLine(lines: string[], startIdx: number, line: string): ParseLineRe
     const { obj, consumed } = parseObjectGroupService(lines, startIdx);
     if (obj) return { statement: obj, consumed };
   }
+  if (cmd === 'access-list' && parts[2]?.toLowerCase() === 'remark') {
+    return { consumed: 1 };
+  }
   if (cmd === 'access-list' && parts[2]?.toLowerCase() === 'extended') {
     const obj = parseAccessListExtended(line, startIdx + 1);
     if (obj) return { statement: obj, consumed: 1 };
+  }
+  if (cmd === 'access-list' && parts[2]?.toLowerCase() === 'advanced') {
+    const obj = parseAccessListAdvanced(line, startIdx + 1);
+    if (obj) return { statement: obj, consumed: 1 };
+    return { consumed: 1 };
   }
   if (cmd === 'nat') {
     const obj = parseNat(line, startIdx + 1);
@@ -203,6 +211,8 @@ function parseObjectGroupNetwork(lines: string[], startIdx: number): {
       entries.push({ type: 'object', name: p[1] });
     } else if (p[0] === 'range' && p[1] && p[2]) {
       entries.push({ type: 'range', from: p[1], to: p[2] });
+    } else {
+      break;
     }
     i++;
   }
@@ -252,6 +262,8 @@ function parseObjectGroupService(lines: string[], startIdx: number): {
       entries.push({ type: 'service-object', name: p[1] });
     } else if (p[0] === 'group-object' && p[1]) {
       entries.push({ type: 'group-object', name: p[1] });
+    } else {
+      break;
     }
     i++;
   }
@@ -295,6 +307,89 @@ function parseAccessListExtended(line: string, ln: number): AccessListExtended |
     srcWildcard,
     dst,
     dstWildcard,
+    dstPort,
+    raw: line,
+    lineNumber: ln,
+  };
+}
+
+/**
+ * FTD / FMC-managed devices often emit `access-list ... advanced ...` instead of `extended`.
+ * Produces the same AST shape as extended ACEs where possible.
+ */
+function parseAccessListAdvanced(line: string, ln: number): AccessListExtended | null {
+  let work = line.trim();
+  work = work.replace(/\s+rule-id\s+\d+.*$/i, '').replace(/\s+event-log\b.*$/i, '').trim();
+
+  const head = work.match(/^access-list\s+(\S+)\s+advanced\s+(permit|deny|trust)\s+(\S+)\s+(.+)$/i);
+  if (!head) return null;
+
+  const aclName = head[1];
+  const actionVerb = head[2].toLowerCase();
+  const action: AccessListExtended['action'] = actionVerb === 'deny' ? 'deny' : 'permit';
+  const proto = head[3];
+  let rest = head[4].trim();
+  if (!rest) return null;
+
+  const ruleIdMatch = line.match(/\brule-id\s+(\d+)/i);
+  const ruleName = ruleIdMatch ? `${aclName}#${ruleIdMatch[1]}` : `${aclName}#L${ln}`;
+
+  let dstPort: string | undefined;
+  const rangeMatches = [...line.matchAll(/\brange\s+(\S+)\s+(\S+)/gi)];
+  const eqMatches = [...line.matchAll(/\b(?:eq|gt|lt|neq)\s+(\S+)/gi)];
+  if (rangeMatches.length > 0) {
+    const last = rangeMatches[rangeMatches.length - 1];
+    dstPort = `${last[1]}-${last[2]}`;
+  } else if (eqMatches.length > 0) {
+    dstPort = eqMatches[eqMatches.length - 1][1];
+  }
+
+  const stripPortClauses = (s: string) =>
+    s
+      .replace(/\s+(?:eq|gt|lt|neq)\s+\S+/gi, '')
+      .replace(/\s+range\s+\S+\s+\S+/gi, '')
+      .trim();
+
+  const body = stripPortClauses(rest);
+  let src = 'any';
+  let dst = 'any';
+
+  const ifcParts = body.split(/\s+ifc\s+/i);
+  if (ifcParts.length >= 3) {
+    src = `ifc ${ifcParts[1]?.trim() || ''}`.trim();
+    dst = `ifc ${ifcParts[2]?.trim() || ''}`.trim();
+  } else if (ifcParts.length === 2) {
+    const left = ifcParts[0].trim();
+    const right = ifcParts[1].trim();
+    src = left.length > 0 ? left : 'any';
+    dst = `ifc ${right}`;
+  } else {
+    const og2 = body.match(/^object-group\s+(\S+)\s+object-group\s+(\S+)$/i);
+    if (og2) {
+      src = `object-group ${og2[1]}`;
+      dst = `object-group ${og2[2]}`;
+    } else if (/^any\s+any$/i.test(body)) {
+      src = 'any';
+      dst = 'any';
+    } else {
+      const ob2 = body.match(/^object\s+(\S+)\s+object\s+(\S+)$/i);
+      if (ob2) {
+        src = `object ${ob2[1]}`;
+        dst = `object ${ob2[2]}`;
+      } else {
+        src = body.length > 0 ? body : 'any';
+        dst = 'any';
+      }
+    }
+  }
+
+  return {
+    type: 'access-list-extended',
+    name: ruleName,
+    action,
+    proto,
+    src,
+    dst,
     dstPort,
     raw: line,
     lineNumber: ln,
