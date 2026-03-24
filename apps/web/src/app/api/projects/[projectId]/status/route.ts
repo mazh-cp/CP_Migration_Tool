@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireProjectAccess } from '@/lib/project-access';
+import { getNormalizedCounts } from '@/lib/normalized-counts';
 
 export async function GET(
   req: Request,
@@ -19,6 +20,12 @@ export async function GET(
       where: { id: jobId, projectId },
     });
     if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+
+    let parseCounts: Awaited<ReturnType<typeof getNormalizedCounts>> | undefined;
+    if (job.type === 'parse' && job.status === 'completed') {
+      parseCounts = (await getNormalizedCounts(projectId, tenantId)) ?? undefined;
+    }
+
     return NextResponse.json({
       job: {
         id: job.id,
@@ -28,6 +35,7 @@ export async function GET(
         startedAt: job.startedAt,
         finishedAt: job.finishedAt,
       },
+      ...(parseCounts ? { parseCounts } : {}),
     });
   }
 

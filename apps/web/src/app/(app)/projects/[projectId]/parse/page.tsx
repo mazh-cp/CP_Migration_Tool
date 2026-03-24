@@ -50,7 +50,10 @@ export default function ParsePage() {
 
   async function waitForParseJob(
     jobId: string
-  ): Promise<{ ok: true } | { ok: false; error: string }> {
+  ): Promise<
+    | { ok: true; counts?: Record<string, number> }
+    | { ok: false; error: string }
+  > {
     const maxAttempts = 450;
     const intervalMs = 2000;
     for (let i = 0; i < maxAttempts; i++) {
@@ -59,10 +62,21 @@ export default function ParsePage() {
         `Parsing… (${Math.round((i * intervalMs) / 1000)}s elapsed — large configs can take several minutes)`
       );
       const r = await fetch(`/api/projects/${projectId}/status?jobId=${encodeURIComponent(jobId)}`);
-      const st = await readApiJson<{ job?: { status: string; errorMessage?: string | null } }>(r);
+      const st = await readApiJson<{
+        job?: { status: string; errorMessage?: string | null };
+        parseCounts?: {
+          objects: number;
+          rules: number;
+          nat: number;
+          interfaces: number;
+          warnings: number;
+        };
+      }>(r);
       if (!r.ok || st.isHtml || !st.data?.job) continue;
       const status = st.data.job.status;
-      if (status === 'completed') return { ok: true };
+      if (status === 'completed') {
+        return { ok: true, counts: st.data.parseCounts };
+      }
       if (status === 'failed') {
         return { ok: false, error: st.data.job.errorMessage || 'Parse failed' };
       }
@@ -126,6 +140,18 @@ export default function ParsePage() {
         const outcome = await waitForParseJob(body.data.jobId);
         if (!outcome.ok) {
           alert(outcome.error);
+          return;
+        }
+        if (outcome.counts) {
+          setParsed(true);
+          setCounts({
+            objects: outcome.counts.objects ?? 0,
+            rules: outcome.counts.rules ?? 0,
+            nat: outcome.counts.nat ?? 0,
+            interfaces: outcome.counts.interfaces ?? 0,
+            warnings: outcome.counts.warnings ?? 0,
+          });
+          router.refresh();
           return;
         }
         await applyNormalizedCounts();
