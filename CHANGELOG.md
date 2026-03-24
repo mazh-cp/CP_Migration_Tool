@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- **Status / parseCounts:** SQLite `$queryRaw` can return **BigInt** for `json_array_length`; `NextResponse.json` threw *Do not know how to serialize a BigInt*. Counts are coerced to **number** in `getNormalizedCounts`.
+
 - **Parse performance:** Replaced **per-row** mapping `upsert` (could be 10k+ sequential SQLite calls) with **`deleteMany` + batched `createMany`** — large configs complete in minutes instead of stalling.
 - **Parse UI:** Poll wait extended to **60 minutes** with clearer elapsed-time hint; `journalctl` documents phase timings (`parse`, `normalize`, `persist_mappings`).
 

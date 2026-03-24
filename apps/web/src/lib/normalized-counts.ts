@@ -8,6 +8,15 @@ export interface NormalizedCounts {
   warnings: number;
 }
 
+/** SQLite raw queries may return BigInt — JSON.stringify cannot serialize BigInt. */
+function toNumber(v: unknown): number {
+  if (typeof v === 'bigint') return Number(v);
+  if (typeof v === 'number' && !Number.isNaN(v)) return v;
+  if (v === null || v === undefined) return 0;
+  const n = Number(v);
+  return Number.isNaN(n) ? 0 : n;
+}
+
 /**
  * Cheap counts only — same numbers the old synchronous POST /parse returned in JSON.
  */
@@ -44,11 +53,11 @@ export async function getNormalizedCounts(
     const row = rows[0];
     if (!row) return null;
     return {
-      objects: row.objects ?? 0,
-      rules: row.rules ?? 0,
-      nat: row.nat ?? 0,
-      interfaces: row.interfaces ?? 0,
-      warnings: row.warnings ?? 0,
+      objects: toNumber(row.objects),
+      rules: toNumber(row.rules),
+      nat: toNumber(row.nat),
+      interfaces: toNumber(row.interfaces),
+      warnings: toNumber(row.warnings),
     };
   } catch {
     const data = await prisma.normalizedData.findFirst({
