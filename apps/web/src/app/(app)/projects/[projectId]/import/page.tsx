@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { formatApiFailureMessage, readApiJson } from '@/lib/read-api-json';
 
 export default function ImportPage() {
   const params = useParams();
@@ -27,8 +28,14 @@ export default function ImportPage() {
           filename: `config.${sourceType === 'asa' ? 'txt' : 'json'}`,
         }),
       });
+      const parsed = await readApiJson(res);
+      if (!res.ok || parsed.isHtml) {
+        alert(
+          formatApiFailureMessage(parsed.status, parsed.isHtml, parsed.data, parsed.rawPreview)
+        );
+        return;
+      }
       if (res.ok) router.push(`/projects/${projectId}/parse`);
-      else alert('Import failed');
     } catch (err) {
       alert('Error: ' + (err as Error).message);
     } finally {
@@ -51,8 +58,14 @@ export default function ImportPage() {
           filename: file.name,
         }),
       });
+      const parsed = await readApiJson(res);
+      if (!res.ok || parsed.isHtml) {
+        alert(
+          formatApiFailureMessage(parsed.status, parsed.isHtml, parsed.data, parsed.rawPreview)
+        );
+        return;
+      }
       if (res.ok) router.push(`/projects/${projectId}/parse`);
-      else alert('Import failed');
     } catch (err) {
       alert('Error: ' + (err as Error).message);
     } finally {

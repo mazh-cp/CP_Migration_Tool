@@ -64,6 +64,22 @@ Optional: `BRANCH=main PORT=3000` if you need non-default branch or port for the
 | Health check fails | `sudo systemctl status cp-migration-tool`; check logs |
 | `systemctl` status **203/EXEC** | `ExecStart` path invalid or `start.sh` not executable. Run the **upgrade script** above (it reinstalls the unit and `chmod +x start.sh`). Verify: `test -x /opt/cp_migration_tool/apps/web/start.sh` |
 | `Failed to find Server Action` in logs after deploy | Harmless noise from browsers still on an old JS bundle; hard refresh (Ctrl+Shift+R) or clear site data. |
+| `Unexpected token '<', "<!DOCTYPE"...` when importing/parsing | The browser received an **HTML** error page (not JSON). Usually **Nginx/proxy body limit**: large pasted configs exceed `client_max_body_size` (default 1m). Increase in your site config, e.g. `client_max_body_size 50m;` inside `http` or `server`, then `sudo nginx -t && sudo systemctl reload nginx`. Also check **502/504** (app down) and **session** (log in again). |
+
+### Nginx in front of Migrator (recommended limits)
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 50m;
+    proxy_read_timeout 300s;
+}
+```
 
 ## Service Commands
 

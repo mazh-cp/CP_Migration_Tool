@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { formatApiFailureMessage, readApiJson } from '@/lib/read-api-json';
 
 export default function ParsePage() {
   const params = useParams();
@@ -20,7 +21,17 @@ export default function ParsePage() {
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}/normalized`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => {
+        const parsed = await readApiJson<{
+          objects?: unknown[];
+          rules?: unknown[];
+          nat?: unknown[];
+          interfaces?: unknown[];
+          warnings?: unknown[];
+        }>(r);
+        if (!r.ok || parsed.isHtml || !parsed.data) return null;
+        return parsed.data;
+      })
       .then((data) => {
         if (data) {
           setParsed(true);
@@ -40,12 +51,27 @@ export default function ParsePage() {
     setLoading(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/parse`, { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        setParsed(true);
-        setCounts(data);
-        router.refresh();
-      } else alert(data.error || 'Parse failed');
+      const parsed = await readApiJson<{
+        objects?: number;
+        rules?: number;
+        nat?: number;
+        warnings?: number;
+        interfaces?: number;
+        findings?: number;
+      }>(res);
+      if (!res.ok || parsed.isHtml) {
+        alert(
+          formatApiFailureMessage(parsed.status, parsed.isHtml, parsed.data, parsed.rawPreview)
+        );
+        return;
+      }
+      if (!parsed.data) {
+        alert('Empty response from server.');
+        return;
+      }
+      setParsed(true);
+      setCounts(parsed.data);
+      router.refresh();
     } catch (err) {
       alert('Error: ' + (err as Error).message);
     } finally {
