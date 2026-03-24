@@ -15,6 +15,28 @@ REPO_URL="${REPO_URL:-https://github.com/mazh-cp/CP_Migration_Tool.git}"
 BRANCH="${BRANCH:-main}"
 PORT="${PORT:-3000}"
 ENV_FILE="$APP_DIR/apps/web/.env"
+START_SH="$APP_DIR/apps/web/start.sh"
+
+# PORT used for health checks (must match systemd + apps/web/.env when set)
+derive_port_from_env() {
+  [ -f "$ENV_FILE" ] || return 0
+  awk -F= '/^[[:space:]]*PORT=/ {
+    v = $2
+    gsub(/^[ \t]+|[ \t\r]+$/, "", v)
+    gsub(/^["\x27]+|["\x27]+$/, "", v)
+    if (v != "") { print v; exit }
+  }' "$ENV_FILE" 2>/dev/null || true
+}
+
+derive_port_for_health() {
+  local p="${PORT}"
+  local from_env
+  from_env="$(derive_port_from_env)"
+  if [ -n "$from_env" ]; then
+    p="$from_env"
+  fi
+  echo "$p"
+}
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "==> Re-running with sudo..."
@@ -92,30 +114,61 @@ cd "$APP_DIR"
 echo "==> Building application..."
 sudo -u "$SERVICE_USER" npm run build
 
+HEALTH_PORT="$(derive_port_for_health)"
+
+echo "==> Ensuring startup wrapper is executable..."
+sed -i 's/\r$//' "$START_SH" 2>/dev/null || true
+chmod +x "$START_SH" 2>/dev/null || true
+if [ ! -f "$START_SH" ]; then
+  echo "ERROR: Missing $START_SH (repository layout changed?)"
+  exit 1
+fi
+
+echo "==> Installing / refreshing systemd unit (fixes 203/EXEC from stale ExecStart)..."
+cat > "/etc/systemd/system/${SERVICE_NAME}.service" << EOF
+[Unit]
+Description=Migrator - Cisco ASA/FTD to Check Point Migration
+After=network.target
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+WorkingDirectory=$APP_DIR/apps/web
+Environment=NODE_ENV=production
+Environment=HOST=0.0.0.0
+Environment=PORT=$HEALTH_PORT
+ExecStart=$START_SH
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 echo "==> Restarting systemd service..."
 systemctl daemon-reload
 systemctl restart "$SERVICE_NAME"
 systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 || true
 
-echo "==> Waiting for health endpoint..."
-for i in {1..12}; do
+echo "==> Waiting for health endpoint (http://127.0.0.1:${HEALTH_PORT}/health)..."
+for i in $(seq 1 24); do
   sleep 5
-  if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
+  if curl -sf "http://127.0.0.1:${HEALTH_PORT}/health" >/dev/null 2>&1; then
     echo "    Healthy after ${i}x5s"
     break
   fi
-  echo "    Attempt $i/12..."
+  echo "    Attempt $i/24..."
 done
 
-if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
+if curl -sf "http://127.0.0.1:${HEALTH_PORT}/health" >/dev/null 2>&1; then
   echo ""
   echo "=============================================="
   echo "  SUCCESS — Production update completed"
   echo "=============================================="
   echo ""
-  echo "  App:     http://<YOUR-VM-IP>:$PORT"
-  echo "  Health:  http://127.0.0.1:$PORT/health"
-  echo "  Ready:   http://127.0.0.1:$PORT/ready"
+  echo "  App:     http://<YOUR-VM-IP>:${HEALTH_PORT}"
+  echo "  Health:  http://127.0.0.1:${HEALTH_PORT}/health"
+  echo "  Ready:   http://127.0.0.1:${HEALTH_PORT}/ready"
   echo ""
   echo "  Service status: systemctl status $SERVICE_NAME"
   echo "  Service logs:   journalctl -u $SERVICE_NAME -f"
@@ -125,6 +178,8 @@ else
   echo "  FAILED — Health check did not pass"
   echo "=============================================="
   echo ""
+  echo "If systemd shows status=203/EXEC, ExecStart was invalid—this script refreshes the unit; re-run once."
+  echo "If browsers show 'Failed to find Server Action', hard-refresh (Ctrl+Shift+R) after deploy."
   journalctl -u "$SERVICE_NAME" -n 100 --no-pager || true
   exit 1
 fi

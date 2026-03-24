@@ -41,6 +41,16 @@ Set `AUTH_PASSWORD='YourNewPassword'` (single quotes for special chars), save, t
 sudo systemctl restart cp-migration-tool
 ```
 
+## One-Command Production Upgrade
+
+Pulls latest `main`, runs `npm ci`, Prisma, build, **refreshes the systemd unit** (avoids stale `ExecStart`), and restarts the service:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/update_azure_ubuntu.sh | sudo bash
+```
+
+Optional: `BRANCH=main PORT=3000` if you need non-default branch or port for the unit file (health checks also read `PORT` from `apps/web/.env` when set).
+
 ## Troubleshooting
 
 | Issue | Fix |
@@ -52,6 +62,8 @@ sudo systemctl restart cp-migration-tool
 | Login OK but redirects to login | Using HTTP (not HTTPS). Add `COOKIE_SECURE=false` to .env and restart |
 | "Invalid credentials" (authEnvSet: true) | Run `curl http://YOUR-VM:3000/api/auth/diagnostic` — check `authPasswordLength`; must match password you type (e.g. "changeme" = 8) |
 | Health check fails | `sudo systemctl status cp-migration-tool`; check logs |
+| `systemctl` status **203/EXEC** | `ExecStart` path invalid or `start.sh` not executable. Run the **upgrade script** above (it reinstalls the unit and `chmod +x start.sh`). Verify: `test -x /opt/cp_migration_tool/apps/web/start.sh` |
+| `Failed to find Server Action` in logs after deploy | Harmless noise from browsers still on an old JS bundle; hard refresh (Ctrl+Shift+R) or clear site data. |
 
 ## Service Commands
 

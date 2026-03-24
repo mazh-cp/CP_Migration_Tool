@@ -122,6 +122,8 @@ After=network.target
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$APP_DIR/apps/web
+Environment=NODE_ENV=production
+Environment=HOST=0.0.0.0
 Environment=PORT=$PORT
 ExecStart=$APP_DIR/apps/web/start.sh
 Restart=on-failure

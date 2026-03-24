@@ -5,13 +5,13 @@ After=network.target
 [Service]
 Type=simple
 User=cpmt
-WorkingDirectory=/opt/cp_migration_tool
+WorkingDirectory=/opt/cp_migration_tool/apps/web
 Environment=NODE_ENV=production
 Environment=HOST=0.0.0.0
 Environment=PORT=3000
-ExecStart=/usr/bin/npm run start
+ExecStart=/opt/cp_migration_tool/apps/web/start.sh
 Restart=on-failure
-RestartSec=5
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
