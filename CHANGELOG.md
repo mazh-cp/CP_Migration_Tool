@@ -6,11 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2025-03-25
+
+### Added
+
+- **`GET /api/projects/[projectId]/normalized-summary`** — array counts only (SQLite `json_array_length`), avoids multi‑MB `GET /normalized` on the Parse step.
+- **`lib/normalized-counts.ts`** — shared count helper for summary + status APIs.
+- **`parseCounts`** on **`GET /api/projects/[projectId]/status?jobId=`** when a **parse** job reaches **completed** (same small payload as legacy synchronous `POST /parse`).
+
 ### Fixed
 
-- **Parse / 504:** `POST /parse` returns **202** immediately and runs normalize/map in the **background**; UI polls `GET /status?jobId=` so Azure/nginx gateways no longer time out on large configs.
-- **Parse UI / 504 after success:** Parse page used `GET /normalized` (very large JSON) for counts — gateways could **504** even when parse logged complete. Added **`GET /normalized-summary`** (counts only).
-- **Regression note:** Older builds returned parse counts in the **single** `POST /parse` JSON; the first async refactor dropped that and pulled full `/normalized` instead — **restored** by **`parseCounts`** on `GET /status?jobId=` when the job completes (same small payload behavior as before).
+- **Parse / gateway 504:** `POST /parse` returns **202** immediately; normalize/map runs in a **background job**; UI polls **`/status?jobId=`** so proxies (Azure AG, Nginx) do not time out on long parses.
+- **Parse UI / 504 after success:** First async refactor loaded full **`/normalized`** for counts — **restored** small counts via **`parseCounts`** on the status poll and **`/normalized-summary`** fallback.
+
+### Changed
+
+- Parse page: polling UI with elapsed-time hint; documents **`REMOTE_INSTALL.md`** / **`read-api-json`** for 502/504 and proxy timeouts.
 
 ## [1.1.0] - 2025-03-24
 

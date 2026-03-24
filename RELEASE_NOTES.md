@@ -1,5 +1,31 @@
 # Release Notes — Migrator
 
+## v1.2.0 (2025-03-25) — Production parse reliability (504 / gateway timeouts)
+
+### Highlights
+
+- **Parse:** Background job + **HTTP 202** + status polling — avoids **504** when parse takes longer than reverse-proxy limits.
+- **Parse counts:** **`parseCounts`** on **`GET /status?jobId=`** when the job completes, plus **`/normalized-summary`** — no longer downloads full **`/normalized`** just for dashboard numbers (fixes 504 after successful parse on large configs).
+- **Validate / Map:** (from v1.1.x line) duplicate rename & service port fixes, FQDN → Check Point **fqdn**, proxy-safe JSON on import.
+
+### Upgrade (Ubuntu VM)
+
+**Latest `main`:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/update_azure_ubuntu.sh | sudo bash
+```
+
+**Pinned to v1.2.0** (server checks out tag `v1.2.0`):
+
+```bash
+BRANCH=v1.2.0 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.2.0/deploy/update_azure_ubuntu.sh | sudo bash
+```
+
+After deploy, **hard-refresh** the browser (Ctrl+Shift+R). Re-run **Parse** on affected projects.
+
+---
+
 ## v1.1.0 (2025-03-24) — Validate fixes, FQDN mapping, proxy-safe API
 
 ### Highlights

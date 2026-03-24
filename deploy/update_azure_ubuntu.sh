@@ -2,20 +2,20 @@
 # =============================================================================
 # Migrator — Single-command Production Updater (Ubuntu/Azure)
 #
-# Documented release: v1.1.0 (see CHANGELOG.md / Git tag). Deployed code follows BRANCH below.
+# Documented release: v1.2.0 (see CHANGELOG.md / Git tag). Deployed code follows BRANCH.
 #
-# Run (latest main):
+# Latest main (always newest):
 #   curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/update_azure_ubuntu.sh | sudo bash
 #
-# Run (pinned tag):
-#   curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.1.0/deploy/update_azure_ubuntu.sh | sudo bash
+# Pinned tag (checkout v1.2.0 on server — set BRANCH so git reset uses the tag):
+#   BRANCH=v1.2.0 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.2.0/deploy/update_azure_ubuntu.sh | sudo bash
 #
 # Optional env:
-#   BRANCH=main PORT=3000 APP_DIR=/opt/cp_migration_tool SERVICE_NAME=cp-migration-tool
+#   BRANCH=main PORT=3000 APP_DIR=/opt/cp_migration_tool SERVICE_NAME=cp-migration-tool DOC_RELEASE_TAG=v1.2.0
 # =============================================================================
 set -euo pipefail
 
-DOC_RELEASE_TAG="${DOC_RELEASE_TAG:-v1.1.0}"
+DOC_RELEASE_TAG="${DOC_RELEASE_TAG:-v1.2.0}"
 
 APP_DIR="${APP_DIR:-/opt/cp_migration_tool}"
 SERVICE_USER="${SERVICE_USER:-cpmt}"
@@ -92,7 +92,7 @@ echo "==> Updating repository..."
 cd "$APP_DIR"
 sudo -u "$SERVICE_USER" git fetch --all --tags --prune
 sudo -u "$SERVICE_USER" git checkout -f "$BRANCH"
-# Branch: origin/main. Tag after fetch: v1.1.0 (no origin/ prefix).
+# Branch: origin/<name> or tag ref after fetch (e.g. v1.2.0).
 if sudo -u "$SERVICE_USER" git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
   sudo -u "$SERVICE_USER" git reset --hard "origin/$BRANCH"
 elif sudo -u "$SERVICE_USER" git show-ref --verify --quiet "refs/tags/$BRANCH"; then
