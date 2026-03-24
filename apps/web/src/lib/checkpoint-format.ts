@@ -12,6 +12,19 @@ const CIDR_REGEX =
 const FQDN_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9.-]{0,251}[a-zA-Z0-9]?$/;
 const NAME_REGEX = /^[a-zA-Z0-9_-]{1,63}$/;
 
+/** Looser name check for renaming existing normalized objects (may include dots from source). */
+const NORMALIZED_RENAME_REGEX = /^[a-zA-Z0-9_.-]{1,128}$/;
+
+/** Returns error message or null if valid. */
+export function validateNormalizedObjectRename(name: string): string | null {
+  const t = name.trim();
+  if (!t) return 'Name is required';
+  if (!NORMALIZED_RENAME_REGEX.test(t)) {
+    return 'Use 1–128 characters: letters, numbers, underscore, hyphen, period';
+  }
+  return null;
+}
+
 export type ObjectType = 'host' | 'network' | 'range' | 'fqdn';
 
 export interface FormatError {

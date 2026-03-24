@@ -54,6 +54,18 @@ export default function ValidatePage() {
     value: '',
   });
   const [editErrors, setEditErrors] = useState<{ field: string; message: string }[]>([]);
+  const [renameModal, setRenameModal] = useState<{
+    finding: Finding;
+    objectId: string;
+    newName: string;
+  } | null>(null);
+  const [servicePortModal, setServicePortModal] = useState<{
+    objectId: string;
+    title: string;
+    port: string;
+  } | null>(null);
+  const [otherPatchBusy, setOtherPatchBusy] = useState(false);
+  const [otherPatchError, setOtherPatchError] = useState<string | null>(null);
 
   const missingRefFindings = result?.findings.filter((f) => f.code === 'MISSING_REF') ?? [];
   const otherFindings = result?.findings.filter((f) => f.code !== 'MISSING_REF') ?? [];
@@ -118,6 +130,78 @@ export default function ValidatePage() {
       return;
     }
     applyFix(editFinding, 'create_custom', editForm);
+  }
+
+  function duplicateBaseName(message: string): string | null {
+    const m = message.match(/^Duplicate object name:\s*(.+)$/);
+    return m ? m[1].trim() : null;
+  }
+
+  function openRenameDuplicate(f: Finding) {
+    const base = duplicateBaseName(f.message);
+    const firstId = f.affectedEntityRefs[0] || '';
+    setOtherPatchError(null);
+    setRenameModal({
+      finding: f,
+      objectId: firstId,
+      newName: base && firstId ? `${base}_${firstId.slice(0, 8)}` : '',
+    });
+  }
+
+  function openServicePort(f: Finding) {
+    const id = f.affectedEntityRefs[0];
+    if (!id) return;
+    setOtherPatchError(null);
+    setServicePortModal({ objectId: id, title: f.message, port: '' });
+  }
+
+  async function submitRenameDuplicate() {
+    if (!renameModal?.objectId || !renameModal.newName.trim()) return;
+    setOtherPatchBusy(true);
+    setOtherPatchError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/patch-object`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objectId: renameModal.objectId, name: renameModal.newName.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setRenameModal(null);
+        revalidate();
+      } else {
+        setOtherPatchError(typeof data.error === 'string' ? data.error : 'Rename failed');
+      }
+    } finally {
+      setOtherPatchBusy(false);
+    }
+  }
+
+  async function submitServicePort() {
+    if (!servicePortModal) return;
+    const p = parseInt(servicePortModal.port, 10);
+    if (Number.isNaN(p) || p < 0 || p > 65535) {
+      setOtherPatchError('Enter a port 0–65535');
+      return;
+    }
+    setOtherPatchBusy(true);
+    setOtherPatchError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/patch-object`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objectId: servicePortModal.objectId, port: p }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setServicePortModal(null);
+        revalidate();
+      } else {
+        setOtherPatchError(typeof data.error === 'string' ? data.error : 'Update failed');
+      }
+    } finally {
+      setOtherPatchBusy(false);
+    }
   }
 
   async function fixAll(fixType: 'create_placeholder' | 'replace_with_any') {
@@ -254,6 +338,10 @@ export default function ValidatePage() {
       {otherFindings.length > 0 && (
         <div className="space-y-2 mb-6">
           <h3 className="font-medium text-slate-300 mb-2">Other findings</h3>
+          <p className="text-sm text-slate-500 mb-2">
+            Use the actions on each card to edit normalized objects. The cyan line is a hint only — it is not a
+            link.
+          </p>
           {otherFindings.map((f) => (
             <div
               key={f.id}
@@ -270,8 +358,38 @@ export default function ValidatePage() {
                 Code: {f.code} | Affected: {f.affectedEntityRefs.join(', ')}
               </div>
               {f.suggestedFix && (
-                <div className="text-sm text-cyan-400 mt-1">Fix: {f.suggestedFix}</div>
+                <div className="text-sm text-slate-500 mt-1">Hint: {f.suggestedFix}</div>
               )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {f.code === 'DUPLICATE_NAME' && f.affectedEntityRefs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => openRenameDuplicate(f)}
+                    disabled={otherPatchBusy}
+                    className="px-3 py-1.5 text-sm bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-lg"
+                  >
+                    Rename an object…
+                  </button>
+                )}
+                {f.code === 'SERVICE_NO_PORT' && f.affectedEntityRefs[0] && (
+                  <button
+                    type="button"
+                    onClick={() => openServicePort(f)}
+                    disabled={otherPatchBusy}
+                    className="px-3 py-1.5 text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+                  >
+                    Add port…
+                  </button>
+                )}
+                {(f.code === 'DUPLICATE_NAME' || f.code === 'SERVICE_NO_PORT') && (
+                  <Link
+                    href={`/projects/${projectId}/map/objects`}
+                    className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg inline-flex items-center"
+                  >
+                    Review mappings
+                  </Link>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -300,6 +418,133 @@ export default function ValidatePage() {
           Back
         </Link>
       </div>
+
+      {/* Rename duplicate object */}
+      {renameModal && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => !otherPatchBusy && setRenameModal(null)}
+        >
+          <div
+            className="bg-slate-800 rounded-xl border border-slate-600 w-full max-w-md p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-2">Rename duplicate object</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              Pick one of the objects that share this name and assign a new unique name. Repeat for other duplicates
+              if needed.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-slate-300 mb-1">Object</label>
+                <select
+                  value={renameModal.objectId}
+                  onChange={(e) =>
+                    setRenameModal((m) =>
+                      m
+                        ? {
+                            ...m,
+                            objectId: e.target.value,
+                            newName: duplicateBaseName(m.finding.message)
+                              ? `${duplicateBaseName(m.finding.message)!}_${e.target.value.slice(0, 8)}`
+                              : m.newName,
+                          }
+                        : m
+                    )
+                  }
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg font-mono text-sm"
+                >
+                  {renameModal.finding.affectedEntityRefs.map((id) => (
+                    <option key={id} value={id}>
+                      {id.slice(0, 8)}…{id.slice(-4)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-300 mb-1">New name</label>
+                <input
+                  type="text"
+                  value={renameModal.newName}
+                  onChange={(e) => setRenameModal((m) => (m ? { ...m, newName: e.target.value } : m))}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg"
+                  placeholder="unique-object-name"
+                />
+              </div>
+              {otherPatchError && <p className="text-sm text-red-400">{otherPatchError}</p>}
+            </div>
+            <div className="flex gap-2 mt-6">
+              <button
+                type="button"
+                onClick={submitRenameDuplicate}
+                disabled={otherPatchBusy || !renameModal.newName.trim()}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-lg"
+              >
+                {otherPatchBusy ? 'Saving…' : 'Save name'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setRenameModal(null)}
+                disabled={otherPatchBusy}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Service: add port */}
+      {servicePortModal && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => !otherPatchBusy && setServicePortModal(null)}
+        >
+          <div
+            className="bg-slate-800 rounded-xl border border-slate-600 w-full max-w-md p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-2">Add service port</h3>
+            <p className="text-sm text-slate-400 mb-4 font-mono">{servicePortModal.title}</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-slate-300 mb-1">Port (0–65535)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={65535}
+                  value={servicePortModal.port}
+                  onChange={(e) =>
+                    setServicePortModal((m) => (m ? { ...m, port: e.target.value } : m))
+                  }
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg"
+                  placeholder="e.g. 443"
+                />
+              </div>
+              {otherPatchError && <p className="text-sm text-red-400">{otherPatchError}</p>}
+            </div>
+            <div className="flex gap-2 mt-6">
+              <button
+                type="button"
+                onClick={submitServicePort}
+                disabled={otherPatchBusy}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+              >
+                {otherPatchBusy ? 'Saving…' : 'Save port'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setServicePortModal(null)}
+                disabled={otherPatchBusy}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit / Create Object Modal */}
       {editFinding && (
