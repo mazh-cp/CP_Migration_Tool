@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Parse / 504:** `POST /parse` returns **202** immediately and runs normalize/map in the **background**; UI polls `GET /status?jobId=` so Azure/nginx gateways no longer time out on large configs.
+
 ## [1.1.0] - 2025-03-24
 
 ### Added

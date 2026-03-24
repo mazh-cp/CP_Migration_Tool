@@ -83,7 +83,7 @@
 
 | Step | Action | Outcome |
 |------|--------|---------|
-| 1 | Click Run Parse | POST /api/projects/[id]/parse |
+| 1 | Click Run Parse | POST /api/projects/[id]/parse → **202** + `jobId`; UI polls GET `/api/projects/[id]/status?jobId=` until complete (avoids proxy **504** on long parses) |
 | 2 | Parser runs | AST from ASA or FTD |
 | 3 | Normalizer runs | Vendor-neutral objects, rules, NAT, interfaces |
 | 4 | Mapping engine proposes targets | MappingDecision records created |

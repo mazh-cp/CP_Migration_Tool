@@ -17,6 +17,7 @@ export default function ParsePage() {
     interfaces?: number;
   } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingHint, setLoadingHint] = useState('');
   const [parsed, setParsed] = useState(false);
 
   useEffect(() => {
@@ -47,11 +48,65 @@ export default function ParsePage() {
       .catch(() => {});
   }, [projectId]);
 
+  async function waitForParseJob(
+    jobId: string
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    const maxAttempts = 450;
+    const intervalMs = 2000;
+    for (let i = 0; i < maxAttempts; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, intervalMs));
+      setLoadingHint(
+        `Parsing… (${Math.round((i * intervalMs) / 1000)}s elapsed — large configs can take several minutes)`
+      );
+      const r = await fetch(`/api/projects/${projectId}/status?jobId=${encodeURIComponent(jobId)}`);
+      const st = await readApiJson<{ job?: { status: string; errorMessage?: string | null } }>(r);
+      if (!r.ok || st.isHtml || !st.data?.job) continue;
+      const status = st.data.job.status;
+      if (status === 'completed') return { ok: true };
+      if (status === 'failed') {
+        return { ok: false, error: st.data.job.errorMessage || 'Parse failed' };
+      }
+    }
+    return {
+      ok: false,
+      error:
+        'Timed out waiting for parse (15 min). The job may still be running — check server logs (journalctl -u cp-migration-tool -f) or retry.',
+    };
+  }
+
+  async function applyNormalizedCounts() {
+    const normRes = await fetch(`/api/projects/${projectId}/normalized`);
+    const normParsed = await readApiJson<{
+      objects?: unknown[];
+      rules?: unknown[];
+      nat?: unknown[];
+      interfaces?: unknown[];
+      warnings?: unknown[];
+    }>(normRes);
+    if (!normRes.ok || normParsed.isHtml || !normParsed.data) {
+      setParsed(true);
+      setCounts({ objects: 0, rules: 0, nat: 0, interfaces: 0, warnings: 0 });
+      return;
+    }
+    const data = normParsed.data;
+    setParsed(true);
+    setCounts({
+      objects: data.objects?.length || 0,
+      rules: data.rules?.length || 0,
+      nat: data.nat?.length || 0,
+      interfaces: data.interfaces?.length || 0,
+      warnings: data.warnings?.length || 0,
+    });
+    router.refresh();
+  }
+
   async function runParse() {
     setLoading(true);
+    setLoadingHint('Starting parse…');
     try {
       const res = await fetch(`/api/projects/${projectId}/parse`, { method: 'POST' });
-      const parsed = await readApiJson<{
+      const body = await readApiJson<{
+        jobId?: string;
         objects?: number;
         rules?: number;
         nat?: number;
@@ -59,23 +114,37 @@ export default function ParsePage() {
         interfaces?: number;
         findings?: number;
       }>(res);
-      if (!res.ok || parsed.isHtml) {
+
+      if (!res.ok || body.isHtml) {
         alert(
-          formatApiFailureMessage(parsed.status, parsed.isHtml, parsed.data, parsed.rawPreview)
+          formatApiFailureMessage(body.status, body.isHtml, body.data, body.rawPreview)
         );
         return;
       }
-      if (!parsed.data) {
-        alert('Empty response from server.');
+
+      if (res.status === 202 && body.data?.jobId) {
+        const outcome = await waitForParseJob(body.data.jobId);
+        if (!outcome.ok) {
+          alert(outcome.error);
+          return;
+        }
+        await applyNormalizedCounts();
         return;
       }
-      setParsed(true);
-      setCounts(parsed.data);
-      router.refresh();
+
+      if (res.ok && body.data && typeof body.data.objects === 'number') {
+        setParsed(true);
+        setCounts(body.data);
+        router.refresh();
+        return;
+      }
+
+      alert('Unexpected response from parse. Try again or check server logs.');
     } catch (err) {
       alert('Error: ' + (err as Error).message);
     } finally {
       setLoading(false);
+      setLoadingHint('');
     }
   }
 
@@ -92,13 +161,18 @@ export default function ParsePage() {
           <p className="text-slate-400 mb-6">
             Run the parser to convert your imported configuration into normalized objects and rules.
           </p>
-          <button
-            onClick={runParse}
-            disabled={loading}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
-          >
-            {loading ? 'Parsing...' : 'Run Parse'}
-          </button>
+          <div className="flex flex-col gap-2 items-start">
+            <button
+              onClick={runParse}
+              disabled={loading}
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+            >
+              {loading ? 'Parsing…' : 'Run Parse'}
+            </button>
+            {loading && loadingHint && (
+              <p className="text-sm text-slate-400 max-w-xl">{loadingHint}</p>
+            )}
+          </div>
         </>
       )}
       {parsed && counts && (

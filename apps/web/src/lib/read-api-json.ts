@@ -52,13 +52,21 @@ export function formatApiFailureMessage(
   rawPreview: string
 ): string {
   if (isHtml) {
-    return [
+    const lines = [
       `The server returned an HTML error page (HTTP ${status}) instead of JSON.`,
       'Common causes on production:',
+    ];
+    if (status === 504 || status === 502) {
+      lines.push(
+        '• Gateway timeout (504/502): Parse can take several minutes. Use an app build that runs parse in the background (HTTP 202 + polling), and/or raise proxy/backend timeouts (e.g. nginx proxy_read_timeout 600s; Azure Application Gateway backend settings request timeout up to 900s for v2).'
+      );
+    }
+    lines.push(
       '• Nginx/reverse proxy: request or body too large — increase client_max_body_size (e.g. 50m) and reload nginx.',
-      '• Gateway timeout or 502/504 — check app logs: journalctl -u cp-migration-tool -f',
-      '• Session lost — hard refresh, log in again, then retry.',
-    ].join('\n');
+      '• Application errors — check logs: journalctl -u cp-migration-tool -f',
+      '• Session lost — hard refresh, log in again, then retry.'
+    );
+    return lines.join('\n');
   }
 
   if (data && typeof data === 'object' && 'error' in data) {
