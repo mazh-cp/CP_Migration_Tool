@@ -7,7 +7,7 @@ ASA/FTD source features and their Check Point conversion status.
 | object network host | ASA/FTD | Yes | host object | High | 1:1 |
 | object network subnet | ASA/FTD | Yes | network object | High | 1:1 |
 | object network range | ASA/FTD | Yes | address-range | High | 1:1 |
-| object network fqdn | ASA/FTD | Yes | host (fallback) | Medium | Manual review recommended |
+| object network fqdn | ASA/FTD | Yes | fqdn (dns-domain) | High | Native Check Point FQDN object |
 | object-group network | ASA/FTD | Yes | group | High | 1:1 |
 | object service tcp/udp | ASA/FTD | Yes | service-tcp / service-udp | High | 1:1 |
 | object-group service | ASA/FTD | Yes | group | Medium | Mixed protocols → warning |

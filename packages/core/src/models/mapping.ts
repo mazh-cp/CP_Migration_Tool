@@ -25,8 +25,10 @@ export type CheckPointTarget =
   | CheckPointNatRule;
 
 export interface CheckPointNetworkObject {
-  type: 'host' | 'network' | 'range' | 'group';
+  type: 'host' | 'network' | 'range' | 'group' | 'fqdn';
   name: string;
+  /** DNS name for `type: 'fqdn'` (Check Point dns-domain / FQDN object). */
+  fqdn?: string;
   ipAddress?: string;
   subnet?: string;
   subnetMask?: string;

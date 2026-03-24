@@ -44,14 +44,24 @@ function mapObject(obj: NormalizedObject): MappingDecision | null {
     };
     reasons.push('Direct equivalent: range -> Check Point range object');
   } else if (obj.type === 'fqdn') {
-    proposedTarget = {
-      type: 'host',
-      name: obj.name,
-      ipAddress: obj.value,
-    };
-    warnings.push('FQDN mapped to host; Check Point supports FQDN objects natively - consider remapping');
-    confidenceScore = 0.8;
-    reasons.push('FQDN mapped as host; manual review recommended');
+    const domain = (obj.value || obj.name || '').trim();
+    if (!domain) {
+      proposedTarget = {
+        type: 'host',
+        name: obj.name,
+        ipAddress: obj.value,
+      };
+      warnings.push('FQDN object has no domain value; mapped as host — fix in source or normalized data');
+      confidenceScore = 0.5;
+      reasons.push('Empty FQDN; host fallback');
+    } else {
+      proposedTarget = {
+        type: 'fqdn',
+        name: obj.name,
+        fqdn: domain,
+      };
+      reasons.push('FQDN -> Check Point dns-domain (FQDN) object');
+    }
   } else if (obj.type === 'group') {
     proposedTarget = {
       type: 'group',

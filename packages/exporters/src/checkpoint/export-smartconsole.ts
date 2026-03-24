@@ -30,10 +30,21 @@ export function exportToSmartConsoleCsv(bundle: CheckPointJsonBundle): {
 
 function buildObjectsCsv(bundle: CheckPointJsonBundle): string {
   const rows: string[][] = [['Name', 'Type', 'IP/CIDR/Range/FQDN', 'Color', 'Comment']];
-  for (const o of bundle.objects as Array<{ name: string; type?: string; ipAddress?: string; subnet?: string; subnetMask?: string; rangeFrom?: string; rangeTo?: string; comments?: string }>) {
+  for (const o of bundle.objects as Array<{
+    name: string;
+    type?: string;
+    ipAddress?: string;
+    subnet?: string;
+    subnetMask?: string;
+    rangeFrom?: string;
+    rangeTo?: string;
+    fqdn?: string;
+    comments?: string;
+  }>) {
     const type = (o.type || 'host').replace('service-', '');
     let value = o.ipAddress || o.subnet || '';
-    if (o.subnet && o.subnetMask && !o.subnet.includes('/')) value = `${o.subnet}/${maskToCidr(o.subnetMask)}`;
+    if (o.type === 'fqdn' && o.fqdn) value = o.fqdn;
+    else if (o.subnet && o.subnetMask && !o.subnet.includes('/')) value = `${o.subnet}/${maskToCidr(o.subnetMask)}`;
     else if (o.rangeFrom && o.rangeTo) value = `${o.rangeFrom}-${o.rangeTo}`;
     rows.push([o.name, type, value, '', o.comments ?? '']);
   }

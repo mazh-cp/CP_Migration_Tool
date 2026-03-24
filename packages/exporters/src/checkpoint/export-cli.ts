@@ -9,7 +9,13 @@ export function exportToCliTemplate(bundle: CheckPointJsonBundle): string {
   ];
 
   lines.push('# --- Network Objects ---');
-  for (const obj of bundle.objects as Array<{ type: string; name: string; ipAddress?: string; subnet?: string }>) {
+  for (const obj of bundle.objects as Array<{
+    type: string;
+    name: string;
+    ipAddress?: string;
+    subnet?: string;
+    fqdn?: string;
+  }>) {
     if (obj.type === 'host' && obj.ipAddress) {
       lines.push(`add host name ${obj.name} ip-address ${obj.ipAddress}`);
     } else if (obj.type === 'network' && obj.subnet) {
@@ -19,6 +25,11 @@ export function exportToCliTemplate(bundle: CheckPointJsonBundle): string {
       if (o.rangeFrom && o.rangeTo) {
         lines.push(`add address-range name ${obj.name} from ${o.rangeFrom} to ${o.rangeTo}`);
       }
+    } else if (obj.type === 'fqdn' && obj.fqdn) {
+      lines.push(
+        `# FQDN (dns-domain): create in SmartConsole — Objects → New → Network → DNS domain, or Management API`
+      );
+      lines.push(`# ${obj.name}  domain: ${obj.fqdn}`);
     }
   }
 

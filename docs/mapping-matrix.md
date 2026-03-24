@@ -5,7 +5,7 @@
 | object network host | host | host object | 1:1 |
 | object network subnet | network | network object | 1:1 |
 | object network range | range | address-range | 1:1 |
-| object network fqdn | fqdn | host (fallback) | CP has native FQDN; manual review recommended |
+| object network fqdn | fqdn | fqdn (dns-domain) | Exported as FQDN in bundle/CSV |
 | object-group network | group | group | 1:1 |
 | object service tcp/udp | service | service-tcp / service-udp | 1:1 |
 | object-group service | service-group | group | Mixed protocols → warning |
