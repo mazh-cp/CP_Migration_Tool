@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-03-24
+
+### Fixed
+
+- **`deploy/upgrade-production.sh` when curl-piped:** Bash does not set `BASH_SOURCE` for stdin scripts, and `set -u` made `${BASH_SOURCE[0]}` fail; the wrapper also looked for `update_azure_ubuntu.sh` in the wrong directory. The wrapper now **downloads `update_azure_ubuntu.sh` from GitHub** when no local sibling exists (same `BRANCH` / `REPO_SLUG` as the deployment).
+
+### Changed
+
+- **Docs:** Pinned-tag examples use **`sudo bash -s -- v1.x`** or **`sudo env BRANCH=v1.x bash`** because **`sudo` does not inherit `BRANCH` from `BRANCH=v1.x curl | sudo bash`**.
+
 ## [1.3.0] - 2026-03-24
 
 ### Added

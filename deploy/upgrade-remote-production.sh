@@ -9,16 +9,16 @@
 #   REMOTE=ubuntu@203.0.113.10 ./deploy/upgrade-remote-production.sh [BRANCH_OR_TAG]
 #
 # Examples:
-#   REMOTE=ubuntu@vm ./deploy/upgrade-remote-production.sh v1.3.0
-#   REMOTE=ubuntu@vm DOC_RELEASE_TAG=v1.3.0 ./deploy/upgrade-remote-production.sh main
+#   REMOTE=ubuntu@vm ./deploy/upgrade-remote-production.sh v1.3.1
+#   REMOTE=ubuntu@vm DOC_RELEASE_TAG=v1.3.1 ./deploy/upgrade-remote-production.sh main
 #
 # Override repo (forks):
-#   REPO_SLUG=org/CP_Migration_Tool REMOTE=user@host ./deploy/upgrade-remote-production.sh v1.3.0
+#   REPO_SLUG=org/CP_Migration_Tool REMOTE=user@host ./deploy/upgrade-remote-production.sh v1.3.1
 # =============================================================================
 set -euo pipefail
 
 REMOTE="${REMOTE:?Set REMOTE=user@host (e.g. REMOTE=ubuntu@203.0.113.10)}"
-BRANCH="${1:-v1.3.0}"
+BRANCH="${1:-v1.3.1}"
 REPO_SLUG="${REPO_SLUG:-mazh-cp/CP_Migration_Tool}"
 DOC_RELEASE_TAG="${DOC_RELEASE_TAG:-$BRANCH}"
 RAW_BASE="https://raw.githubusercontent.com/${REPO_SLUG}/${BRANCH}"

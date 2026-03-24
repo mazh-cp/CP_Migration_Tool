@@ -51,20 +51,30 @@ Pulls latest `main`, runs `npm ci`, Prisma, build, **refreshes the systemd unit*
 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo bash
 ```
 
-**Pinned release (v1.3.0):** set `BRANCH` to the tag so the server checkout matches the release:
+**Pinned release (v1.3.1):** `sudo` does **not** keep `BRANCH` from `BRANCH=v1.x curl | sudo bash`. Pass the tag **inside** `sudo` or use **`bash -s -- <tag>`**:
 
 ```bash
-BRANCH=v1.3.0 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.0/deploy/upgrade-production.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.1/deploy/upgrade-production.sh | sudo bash -s -- v1.3.1
 ```
 
-The legacy script `deploy/update_azure_ubuntu.sh` is equivalent. Optional: `BRANCH=main PORT=3000` for non-default branch or port (health checks also read `PORT` from `apps/web/.env`). Doc banner: `DOC_RELEASE_TAG=v1.3.0`.
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.1/deploy/upgrade-production.sh | sudo env BRANCH=v1.3.1 bash
+```
+
+**Direct updater** (no wrapper; works for any tag):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.1/deploy/update_azure_ubuntu.sh | sudo env BRANCH=v1.3.1 bash
+```
+
+Optional: `PORT=3000` for the unit file (health checks also read `PORT` from `apps/web/.env`). Doc banner: `DOC_RELEASE_TAG=v1.3.1`.
 
 ### Upgrade from your workstation (SSH)
 
 If the repo is cloned locally:
 
 ```bash
-REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.3.0
+REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.3.1
 ```
 
 Uses `curl` on the remote host; set `REPO_SLUG=org/repo` for a fork.

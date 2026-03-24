@@ -1,5 +1,25 @@
 # Release Notes — Migrator
 
+## v1.3.1 (2026-03-24) — Fix curl-piped `upgrade-production.sh`
+
+### Fix
+
+- **`upgrade-production.sh` via `curl | sudo bash`:** The v1.3.0 wrapper used `BASH_SOURCE` to find `update_azure_ubuntu.sh`, which **does not work** when the script is read from stdin (unbound variable / wrong path). v1.3.1 **fetches the updater from GitHub** when no local file exists.
+
+### Pinned upgrade (use one of these)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.1/deploy/upgrade-production.sh | sudo bash -s -- v1.3.1
+```
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.1/deploy/update_azure_ubuntu.sh | sudo env BRANCH=v1.3.1 bash
+```
+
+**Note:** `BRANCH=v1.x curl … | sudo bash` does **not** pass `BRANCH` into the script sudo runs — use **`bash -s -- v1.x`** or **`sudo env BRANCH=v1.x bash`**.
+
+---
+
 ## v1.3.0 (2026-03-24) — FTD/FMC advanced ACLs & production upgrade scripts
 
 ### Highlights
@@ -11,11 +31,7 @@
 
 ### Upgrade (Ubuntu VM)
 
-**Pinned to v1.3.0:**
-
-```bash
-BRANCH=v1.3.0 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.0/deploy/upgrade-production.sh | sudo bash
-```
+Use **v1.3.1** for the wrapper, or see **v1.3.1** release notes above for `bash -s` / `env BRANCH` patterns.
 
 **Latest `main`:**
 
@@ -26,7 +42,7 @@ curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/depl
 **From your workstation (SSH):**
 
 ```bash
-REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.3.0
+REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.3.1
 ```
 
 After deploy, **hard-refresh** the browser. **Re-run Parse** on projects that use FMC/FTD-style advanced ACL text.
