@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# CP Migration Tool — Single-command Ubuntu/Azure installer
+# Migrator — Single-command Ubuntu/Azure installer
 # Run: curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/install_azure_ubuntu.sh | sudo bash
 # v1.0.2 - Ubuntu 22.04/24.04, Node 20 LTS
 # Compatible with Ubuntu 22.04 and 24.04
@@ -21,7 +21,7 @@ fi
 
 echo ""
 echo "=============================================="
-echo "  CP Migration Tool — Ubuntu Installer"
+echo "  Migrator — Ubuntu Installer"
 echo "=============================================="
 echo "  App dir: $APP_DIR"
 echo "  Port:    $PORT"
@@ -115,7 +115,7 @@ chown "$SERVICE_USER:$SERVICE_USER" "$APP_DIR/apps/web/start.sh" 2>/dev/null || 
 echo "==> Installing systemd service..."
 cat > /etc/systemd/system/cp-migration-tool.service << EOF
 [Unit]
-Description=CP Migration Tool - Cisco ASA/FTD to Check Point Migration
+Description=Migrator - Cisco ASA/FTD to Check Point Migration
 After=network.target
 
 [Service]
@@ -158,7 +158,7 @@ done
 if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
   echo ""
   echo "=============================================="
-  echo "  SUCCESS — CP Migration Tool is running"
+  echo "  SUCCESS — Migrator is running"
   echo "=============================================="
   echo ""
   echo "  App:     http://<YOUR-VM-IP>:$PORT"

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'CP Migration Tool',
+  title: 'Migrator',
   description: 'Cisco ASA/FTD to Check Point firewall migration',
 };
 

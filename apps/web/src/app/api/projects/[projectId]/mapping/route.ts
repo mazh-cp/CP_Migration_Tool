@@ -11,7 +11,7 @@ export async function GET(
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const records = await prisma.mappingDecisionRecord.findMany({
-    where: { projectId },
+    where: { projectId, tenantId: auth.session.tenantId },
   });
   return NextResponse.json(
     records.map((r) => ({

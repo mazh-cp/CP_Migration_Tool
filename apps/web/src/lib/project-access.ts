@@ -1,39 +1,61 @@
-import { prisma } from './prisma';
-import { isEnvAdmin } from './auth';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
+/**
+ * Tenant-scoped authorization. Tenant identity from session only; never from request params.
+ */
 
-const SESSION_SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || 'dev-secret-change-in-production'
-);
-const COOKIE_NAME = 'cisco2cp_session';
+import { prisma } from './prisma';
+import { requireTenantSession as getTenantSessionFromContext, type TenantSession } from './session-context';
+import { requireSupportModeForTenant } from './platform-admin-access';
 
 export type ProjectRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
-export async function getCurrentUser(): Promise<{ username: string; userId?: string } | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, SESSION_SECRET);
-    return { username: payload.username as string, userId: payload.userId as string | undefined };
-  } catch {
-    return null;
-  }
+/** Re-export: get current tenant-bound session from session-context. */
+export async function requireTenantSession(): Promise<TenantSession | null> {
+  return getTenantSessionFromContext();
 }
 
-/** Check if user has access to project. Admin (env user) has full access. */
-export async function getProjectAccess(
+/**
+ * Require access to project. Queries with where: { id: projectId, tenantId: session.tenantId }.
+ * Never uses tenantId from request. Supports support-mode: if tenant session fails, check platform admin support for that project's tenant.
+ */
+export async function requireProjectAccess(
   projectId: string,
-  username: string,
-  userId?: string
-): Promise<ProjectRole | null> {
-  if (isEnvAdmin(username)) return 'owner';
-  if (!userId) return null;
-  const member = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId } },
-  });
-  return (member?.role as ProjectRole) ?? null;
+  requireEdit = false
+): Promise<{ session: TenantSession; project: { id: string; tenantId: string; name: string }; role: ProjectRole } | null> {
+  const session = await getTenantSessionFromContext();
+  if (session) {
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, tenantId: session.tenantId },
+      select: { id: true, tenantId: true, name: true },
+    });
+    if (!project) return null;
+    const member = await prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId: session.userId } },
+    });
+    const role = (member?.role as ProjectRole) ?? 'viewer';
+    if (requireEdit && !canEdit(role)) return null;
+    return {
+      session,
+      project: { id: project.id, tenantId: project.tenantId ?? session.tenantId, name: project.name },
+      role,
+    };
+  }
+  const projectRow = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true, tenantId: true, name: true } });
+  if (!projectRow || !projectRow.tenantId) return null;
+  const support = await requireSupportModeForTenant(projectRow.tenantId);
+  if (!support) return null;
+  const tenantSession: TenantSession = {
+    userId: support.userId,
+    tenantId: support.supportTargetTenantId,
+    sessionId: support.sessionId,
+    role: 'admin',
+    username: support.username,
+    email: null,
+  };
+  return {
+    session: tenantSession,
+    project: { id: projectRow.id, tenantId: projectRow.tenantId, name: projectRow.name },
+    role: 'admin',
+  };
 }
 
 export function canEdit(role: ProjectRole | null): boolean {
@@ -42,17 +64,4 @@ export function canEdit(role: ProjectRole | null): boolean {
 
 export function canManageMembers(role: ProjectRole | null): boolean {
   return role === 'owner' || role === 'admin';
-}
-
-/** Returns { user, access } or null if unauthorized/forbidden */
-export async function requireProjectAccess(
-  projectId: string,
-  requireEdit = false
-): Promise<{ user: { username: string; userId?: string }; access: ProjectRole } | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
-  const access = await getProjectAccess(projectId, user.username, user.userId);
-  if (!access) return null;
-  if (requireEdit && !canEdit(access)) return null;
-  return { user, access };
 }

@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, UserPlus, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Users, UserPlus, Trash2, ChevronDown, ChevronRight, KeyRound } from 'lucide-react';
+
+type TenantRole = 'admin' | 'member' | 'viewer';
 
 interface User {
   id: string;
   username: string;
+  email: string | null;
   createdAt: string;
+  tenantRole: string;
+  isPrimary: boolean;
 }
 
 interface Project {
@@ -33,6 +38,9 @@ export default function SettingsPage() {
   const [litellmModel, setLitellmModel] = useState('gpt-4');
   const [litellmApiKey, setLitellmApiKey] = useState('');
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
+  const [aiValidationEnabled, setAiValidationEnabled] = useState(false);
+  const [aiValidationOutboundEnabled, setAiValidationOutboundEnabled] = useState(false);
+  const [openAiApiKeyConfigured, setOpenAiApiKeyConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
@@ -45,7 +53,21 @@ export default function SettingsPage() {
   const [addMemberProject, setAddMemberProject] = useState('');
   const [addMemberUserId, setAddMemberUserId] = useState('');
   const [addMemberRole, setAddMemberRole] = useState<'admin' | 'editor' | 'viewer'>('editor');
+  const [newUserEmail, setNewUserEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [roleUpdating, setRoleUpdating] = useState<string | null>(null);
+
+  // SSO
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+  const [ssoType, setSsoType] = useState<'saml' | 'oidc'>('saml');
+  const [samlEntityId, setSamlEntityId] = useState('');
+  const [samlSsoUrl, setSamlSsoUrl] = useState('');
+  const [samlCertificate, setSamlCertificate] = useState('');
+  const [oidcIssuerUrl, setOidcIssuerUrl] = useState('');
+  const [oidcClientId, setOidcClientId] = useState('');
+  const [oidcClientSecret, setOidcClientSecret] = useState('');
+  const [ssoSaving, setSsoSaving] = useState(false);
+  const [ssoError, setSsoError] = useState('');
 
   useEffect(() => {
     fetch('/api/config')
@@ -57,6 +79,9 @@ export default function SettingsPage() {
         setLitellmBaseUrl(d.litellmBaseUrl || '');
         setLitellmModel(d.litellmModel || 'gpt-4');
         setApiKeyConfigured(d.apiKeyConfigured ?? false);
+        setAiValidationEnabled(!!d.aiValidationEnabled);
+        setAiValidationOutboundEnabled(!!d.aiValidationOutboundEnabled);
+        setOpenAiApiKeyConfigured(!!d.openAiApiKeyConfigured);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -80,6 +105,24 @@ export default function SettingsPage() {
       .catch(() => setProjects([]));
   }, [isAdmin]);
 
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch('/api/sso')
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d: { enabled?: boolean; type?: string; config?: Record<string, string> }) => {
+        setSsoEnabled(!!d.enabled);
+        setSsoType((d.type === 'oidc' ? 'oidc' : 'saml') as 'saml' | 'oidc');
+        const c = d.config ?? {};
+        setSamlEntityId(c.entityId ?? c.entity_id ?? '');
+        setSamlSsoUrl(c.ssoUrl ?? c.sso_url ?? '');
+        setSamlCertificate(c.certificate ?? '');
+        setOidcIssuerUrl(c.issuerUrl ?? c.issuer_url ?? '');
+        setOidcClientId(c.clientId ?? c.client_id ?? '');
+        setOidcClientSecret(c.clientSecret ?? c.client_secret ?? '');
+      })
+      .catch(() => {});
+  }, [isAdmin]);
+
   async function loadProjectMembers(projectId: string) {
     const res = await fetch(`/api/projects/${projectId}/members`);
     if (res.ok) {
@@ -95,18 +138,80 @@ export default function SettingsPage() {
       setAddUserError('Username and password required');
       return;
     }
+    const payload: { username: string; password: string; email?: string } = {
+      username: newUsername.trim(),
+      password: newPassword,
+    };
+    if (newUserEmail.trim()) payload.email = newUserEmail.trim();
     const res = await fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: newUsername.trim(), password: newPassword }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (res.ok) {
-      setUsers((prev) => [...prev, data]);
+      setUsers((prev) => [...prev, { ...data, tenantRole: 'member', isPrimary: true }]);
       setNewUsername('');
       setNewPassword('');
+      setNewUserEmail('');
     } else {
       setAddUserError(data.error || 'Failed to add user');
+    }
+  }
+
+  async function handleRoleChange(userId: string, newRole: TenantRole) {
+    setRoleUpdating(userId);
+    setSsoError('');
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, tenantRole: newRole } : u))
+        );
+      }
+    } finally {
+      setRoleUpdating(null);
+    }
+  }
+
+  async function handleSaveSso() {
+    setSsoError('');
+    setSsoSaving(true);
+    try {
+      const config: Record<string, string> =
+        ssoType === 'saml'
+          ? {
+              entityId: samlEntityId.trim(),
+              ssoUrl: samlSsoUrl.trim(),
+              certificate: samlCertificate.trim(),
+            }
+          : {
+              issuerUrl: oidcIssuerUrl.trim(),
+              clientId: oidcClientId.trim(),
+              clientSecret: oidcClientSecret,
+            };
+      const res = await fetch('/api/sso', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: ssoEnabled,
+          type: ssoEnabled ? ssoType : null,
+          config: ssoEnabled ? config : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSsoError(data.error || 'Failed to save SSO settings');
+        return;
+      }
+    } catch {
+      setSsoError('Failed to save SSO settings');
+    } finally {
+      setSsoSaving(false);
     }
   }
 
@@ -274,23 +379,60 @@ export default function SettingsPage() {
           </p>
         )}
 
+        <div className="pt-6 border-t border-slate-700">
+          <h2 className="text-lg font-medium mb-3">AI Validation (OpenAI)</h2>
+          <p className="text-slate-400 text-sm mb-4">
+            These controls are environment-managed for safety. API keys are never returned to the client.
+          </p>
+          <div className="space-y-3">
+            <label className="flex items-center justify-between gap-3 p-3 bg-slate-800/40 border border-slate-700 rounded-lg">
+              <span className="text-sm">AI validation endpoint enabled</span>
+              <input
+                type="checkbox"
+                checked={aiValidationEnabled}
+                onChange={(e) => setAiValidationEnabled(e.target.checked)}
+                disabled
+                className="rounded border-slate-600 bg-slate-800 text-cyan-500 disabled:opacity-80"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3 p-3 bg-slate-800/40 border border-slate-700 rounded-lg">
+              <span className="text-sm">Outbound OpenAI calls enabled</span>
+              <input
+                type="checkbox"
+                checked={aiValidationOutboundEnabled}
+                onChange={(e) => setAiValidationOutboundEnabled(e.target.checked)}
+                disabled
+                className="rounded border-slate-600 bg-slate-800 text-cyan-500 disabled:opacity-80"
+              />
+            </label>
+            <div className="text-xs text-slate-500">
+              <p>
+                OPENAI_API_KEY configured: <span className="text-slate-300">{openAiApiKeyConfigured ? 'Yes' : 'No'}</span>
+              </p>
+              <p className="mt-1">
+                To change these values, update `AI_VALIDATION_ENABLED`, `AI_VALIDATION_OUTBOUND_ENABLED`, and `OPENAI_API_KEY` in server environment.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="pt-8 border-t border-slate-700">
           <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
             <Users className="w-5 h-5 text-cyan-400" />
-            Users & Project Access (RBAC)
+            Users & Roles
           </h2>
           <p className="text-slate-400 text-sm mb-4">
-            Add users and assign them to projects with roles. Only the admin (AUTH_USERNAME) can manage users and project access.
+            Add users and set tenant roles. <strong>Admin</strong> can manage users and settings; <strong>member</strong> and <strong>viewer</strong> have project access only. Each user has one primary tenant.
           </p>
 
           {!isAdmin && (
-            <p className="text-amber-400/80 text-sm py-2">You must be logged in as admin to manage users and project access.</p>
+            <p className="text-amber-400/80 text-sm py-2">You must be logged in as a tenant admin to manage users and roles.</p>
           )}
 
           <div className="space-y-6">
             {isAdmin && <div>
               <h3 className="text-sm font-medium text-slate-300 mb-2">Add User</h3>
-              <form onSubmit={handleAddUser} className="flex flex-wrap gap-2 items-end">
+              <form onSubmit={handleAddUser} className="flex flex-wrap gap-3 items-end">
                 <div>
                   <label className="block text-xs text-slate-500 mb-1">Username</label>
                   <input
@@ -311,6 +453,16 @@ export default function SettingsPage() {
                     className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Email (optional)</label>
+                  <input
+                    type="email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    placeholder="user@example.com"
+                    className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm"
+                  />
+                </div>
                 <button type="submit" className="flex items-center gap-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm">
                   <UserPlus className="w-4 h-4" />
                   Add User
@@ -320,16 +472,45 @@ export default function SettingsPage() {
             </div>}
 
             {isAdmin && <div>
-              <h3 className="text-sm font-medium text-slate-300 mb-2">Users</h3>
-              <div className="flex flex-wrap gap-2">
+              <h3 className="text-sm font-medium text-slate-300 mb-2">Tenant users & roles</h3>
+              <div className="rounded-lg border border-slate-700 overflow-hidden">
                 {users.length === 0 ? (
-                  <p className="text-slate-500 text-sm">No users yet. Add users above.</p>
+                  <p className="text-slate-500 text-sm p-4">No users yet. Add users above.</p>
                 ) : (
-                  users.map((u) => (
-                    <span key={u.id} className="px-3 py-1 bg-slate-800 rounded-lg text-sm">
-                      {u.username}
-                    </span>
-                  ))
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-800/80 text-left text-slate-400">
+                        <th className="px-4 py-2 font-medium">User</th>
+                        <th className="px-4 py-2 font-medium">Email</th>
+                        <th className="px-4 py-2 font-medium">Role</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((u) => (
+                        <tr key={u.id} className="border-t border-slate-700">
+                          <td className="px-4 py-2">
+                            <span className="font-medium">{u.username}</span>
+                            {u.isPrimary && (
+                              <span className="ml-2 text-xs text-cyan-400" title="Primary tenant">●</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-slate-400">{u.email || '—'}</td>
+                          <td className="px-4 py-2">
+                            <select
+                              value={u.tenantRole}
+                              onChange={(e) => handleRoleChange(u.id, e.target.value as TenantRole)}
+                              disabled={roleUpdating === u.id}
+                              className="px-2 py-1 bg-slate-800 border border-slate-600 rounded text-sm disabled:opacity-50"
+                            >
+                              <option value="admin">Admin</option>
+                              <option value="member">Member</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
             </div>}
@@ -416,6 +597,122 @@ export default function SettingsPage() {
                 {projects.length === 0 && <p className="text-slate-500 text-sm">No projects. Create a project first.</p>}
               </div>
             </div>
+
+            {isAdmin && (
+              <div className="pt-6 border-t border-slate-700">
+                <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
+                  <KeyRound className="w-5 h-5 text-cyan-400" />
+                  Single sign-on (SSO)
+                </h2>
+                <p className="text-slate-400 text-sm mb-4">
+                  Configure SAML 2.0 or OpenID Connect so users can sign in with your identity provider. Settings are stored per tenant.
+                </p>
+                <div className="space-y-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ssoEnabled}
+                      onChange={(e) => setSsoEnabled(e.target.checked)}
+                      className="rounded border-slate-600 bg-slate-800 text-cyan-500"
+                    />
+                    <span className="text-sm">Enable SSO for this tenant</span>
+                  </label>
+                  {ssoEnabled && (
+                    <>
+                      <div>
+                        <label className="block text-sm text-slate-300 mb-1">Provider type</label>
+                        <select
+                          value={ssoType}
+                          onChange={(e) => setSsoType(e.target.value as 'saml' | 'oidc')}
+                          className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg w-full max-w-xs"
+                        >
+                          <option value="saml">SAML 2.0</option>
+                          <option value="oidc">OpenID Connect (OIDC)</option>
+                        </select>
+                      </div>
+                      {ssoType === 'saml' && (
+                        <div className="space-y-3 pl-4 border-l-2 border-slate-600">
+                          <div>
+                            <label className="block text-sm text-slate-300 mb-1">IdP Entity ID</label>
+                            <input
+                              type="text"
+                              value={samlEntityId}
+                              onChange={(e) => setSamlEntityId(e.target.value)}
+                              placeholder="https://idp.example.com/entity"
+                              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-slate-300 mb-1">SSO URL</label>
+                            <input
+                              type="url"
+                              value={samlSsoUrl}
+                              onChange={(e) => setSamlSsoUrl(e.target.value)}
+                              placeholder="https://idp.example.com/sso"
+                              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-slate-300 mb-1">IdP certificate (X.509 PEM)</label>
+                            <textarea
+                              value={samlCertificate}
+                              onChange={(e) => setSamlCertificate(e.target.value)}
+                              placeholder="-----BEGIN CERTIFICATE-----..."
+                              rows={4}
+                              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm font-mono"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {ssoType === 'oidc' && (
+                        <div className="space-y-3 pl-4 border-l-2 border-slate-600">
+                          <div>
+                            <label className="block text-sm text-slate-300 mb-1">Issuer URL</label>
+                            <input
+                              type="url"
+                              value={oidcIssuerUrl}
+                              onChange={(e) => setOidcIssuerUrl(e.target.value)}
+                              placeholder="https://accounts.google.com or https://your-tenant.okta.com"
+                              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-slate-300 mb-1">Client ID</label>
+                            <input
+                              type="text"
+                              value={oidcClientId}
+                              onChange={(e) => setOidcClientId(e.target.value)}
+                              placeholder="OAuth client ID"
+                              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-slate-300 mb-1">Client secret</label>
+                            <input
+                              type="password"
+                              value={oidcClientSecret}
+                              onChange={(e) => setOidcClientSecret(e.target.value)}
+                              placeholder="OAuth client secret"
+                              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm"
+                              autoComplete="off"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleSaveSso}
+                        disabled={ssoSaving}
+                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg text-sm"
+                      >
+                        {ssoSaving ? 'Saving...' : 'Save SSO settings'}
+                      </button>
+                      {ssoError && <p className="text-red-400 text-sm">{ssoError}</p>}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

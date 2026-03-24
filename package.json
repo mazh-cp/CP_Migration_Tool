@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "postinstall": "cd apps/web && prisma generate",
+    "clear": "rm -rf apps/web/.next .turbo node_modules/.cache",
     "dev": "turbo run dev",
     "build": "turbo run build",
     "start": "cd apps/web && next start",
@@ -19,6 +20,7 @@
     "db:generate": "cd apps/web && prisma generate",
     "db:push": "cd apps/web && prisma db push",
     "db:studio": "cd apps/web && prisma studio",
+    "cleanup": "cd apps/web && npm run cleanup",
     "release:check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "audit": "npm audit --production",
     "precommit": "npm run lint && npm run typecheck"

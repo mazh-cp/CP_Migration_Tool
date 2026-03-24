@@ -53,6 +53,7 @@ export async function POST(
   const { projectId } = await params;
   const auth = await requireProjectAccess(projectId, true);
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const tenantId = auth.session.tenantId;
 
   let body: z.infer<typeof fixSchema>;
   try {
@@ -65,8 +66,8 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 
-  const data = await prisma.normalizedData.findUnique({
-    where: { projectId },
+  const data = await prisma.normalizedData.findFirst({
+    where: { projectId, tenantId },
   });
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
@@ -167,6 +168,7 @@ export async function POST(
         },
         create: {
           projectId,
+          tenantId,
           entityType: d.entityType,
           sourceId: d.sourceId,
           proposedTarget: JSON.stringify(d.proposedTarget),
@@ -198,6 +200,7 @@ export async function POST(
           },
           create: {
             projectId,
+            tenantId,
             entityType: 'rule',
             sourceId: d.sourceId,
             proposedTarget: JSON.stringify(d.proposedTarget),
@@ -220,6 +223,7 @@ export async function POST(
     where: { projectId },
     create: {
       projectId,
+      tenantId,
       objectsJson: JSON.stringify(objects),
       rulesJson: JSON.stringify(rules),
       natJson: data.natJson,

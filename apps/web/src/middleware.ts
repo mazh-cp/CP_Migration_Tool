@@ -11,15 +11,15 @@ const SESSION_SECRET = (() => {
 })();
 const COOKIE_NAME = 'cisco2cp_session';
 
-const PUBLIC_PATHS = ['/login', '/health', '/ready'];
+const PUBLIC_PATHS = ['/login', '/health', '/ready', '/auth/sso-callback'];
 
 export async function middleware(req: NextRequest) {
   try {
     const { pathname } = req.nextUrl;
 
-    if (pathname.startsWith('/api/auth/')) {
-    return NextResponse.next();
-  }
+    if (pathname.startsWith('/api/auth/') || pathname.startsWith('/api/cron/')) {
+      return NextResponse.next();
+    }
   if (pathname === '/health' || pathname === '/ready') {
     return NextResponse.next();
   }
@@ -37,7 +37,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  if (PUBLIC_PATHS.includes(pathname)) {
+  if (PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/auth/')) {
     const token = req.cookies.get(COOKIE_NAME)?.value;
     if (token) {
       try {

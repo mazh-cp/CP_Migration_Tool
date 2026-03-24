@@ -1,8 +1,8 @@
-# User Guide — CP Migration Tool
+# User Guide — Migrator
 
 **Cisco ASA/FTD → Check Point Migration**
 
-This guide walks you through converting Cisco ASA or FTD configurations to Check Point format using CP Migration Tool.
+This guide walks you through converting Cisco ASA or FTD configurations to Check Point format using Migrator.
 
 ---
 

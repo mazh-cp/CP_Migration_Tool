@@ -1,4 +1,4 @@
-# Final Release Checklist — CP Migration Tool v1.0.0
+# Final Release Checklist — Migrator v1.0.0
 
 ## Build
 

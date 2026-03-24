@@ -1,4 +1,4 @@
-# Remote Installation — CP Migration Tool
+# Remote Installation — Migrator
 
 Stable installation for Ubuntu 22.04/24.04 VMs (Azure, AWS, on-prem).
 

@@ -20,6 +20,7 @@ export async function POST(
 
   const body = await req.json();
   const { entityType, sourceId, proposedTarget, notes } = overrideSchema.parse(body);
+  const tenantId = auth.session.tenantId;
 
   await prisma.mappingDecisionRecord.upsert({
     where: {
@@ -27,6 +28,7 @@ export async function POST(
     },
     create: {
       projectId,
+      tenantId,
       entityType,
       sourceId,
       proposedTarget: JSON.stringify(proposedTarget),

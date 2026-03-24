@@ -1,4 +1,4 @@
-# Admin Guide — CP Migration Tool
+# Admin Guide — Migrator
 
 Administration, authentication, RBAC, and configuration.
 

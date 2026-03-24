@@ -7,30 +7,174 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+// ---------------------------------------------------------------------------
+// Tenant & identity
+// ---------------------------------------------------------------------------
 
-  projectMembers ProjectMember[]
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships    TenantMembership[]
+  identityProviders IdentityProvider[]
+  settings       TenantSetting[]
+  projects       Project[]
+  userSessions  UserSession[]
+  auditLogs      AuditLog[]
 }
 
-model Project {
-  id            String   @id @default(uuid())
-  name          String
-  sourceType    String   // asa | ftd | both
-  status        String   @default("draft") // draft | imported | parsed | mapped | validated | exported
-  currentStep   String   @default("import")
-  completedSteps String  @default("[]") // JSON array of step names
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model User {
+  id                       String   @id @default(uuid())
+  username                 String   @unique
+  email                    String?  @unique
+  passwordHash             String
+  isInternalSupportIdentity Boolean  @default(false)
+  isPlatformAdmin          Boolean  @default(false)
+  ssoExternalId            String?
+  ssoTenantSlug            String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
-  artifacts      RawArtifact[]
-  normalized     NormalizedData?
-  jobs           Job[]
+  tenantMemberships    TenantMembership[]
+  userSessions         UserSession[]
+  platformAdminSessions PlatformAdminSession[]
+  auditLogsAsActor    AuditLog[] @relation("AuditLogActor")
+  projectMembers      ProjectMember[]
+
+  @@unique([ssoExternalId, ssoTenantSlug])
+  @@index([ssoExternalId])
+}
+
+model TenantMembership {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String
+  role       String   // admin | member | viewer
+  isPrimary  Boolean  @default(false)
+  status     String   @default("active") // active | suspended | removed
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId, status])
+  @@index([tenantId, status])
+}
+
+model IdentityProvider {
+  id        String   @id @default(uuid())
+  tenantId  String
+  type      String   // saml | oidc | etc.
+  config    String   // JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model UserSession {
+  id           String    @id @default(uuid())
+  userId       String
+  tenantId     String
+  sessionToken String   @unique
+  status       String   @default("ACTIVE") // ACTIVE | REVOKED | EXPIRED
+  createdAt    DateTime  @default(now())
+  lastSeenAt   DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  ipAddress    String?
+  userAgent    String?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId, tenantId, status])
+  @@index([sessionToken])
+}
+
+model PlatformAdminSession {
+  id                   String    @id @default(uuid())
+  userId               String
+  mode                 String    // SUPPORT
+  status               String    @default("ACTIVE") // ACTIVE | REVOKED | EXPIRED
+  supportTargetTenantId String?
+  elevatedAt           DateTime  @default(now())
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  justification        String?
+  approvedBy           String?
+  ipAddress            String?
+  userAgent            String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+model AuditLog {
+  id                     String   @id @default(uuid())
+  actorUserId            String
+  tenantId               String?
+  platformAdminSessionId String?
+  action                 String
+  resourceType           String
+  resourceId             String?
+  result                 String   // success | failure
+  details                String?  // JSON
+  ipAddress              String?
+  userAgent              String?
+  createdAt              DateTime @default(now())
+
+  actor User?  @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+model TenantSetting {
+  id        String   @id @default(uuid())
+  tenantId  String
+  key       String
+  value     String   // JSON or string
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+}
+
+// ---------------------------------------------------------------------------
+// Project & migration data (all tenant-scoped)
+// ---------------------------------------------------------------------------
+
+model Project {
+  id             String   @id @default(uuid())
+  tenantId       String?  // required after backfill; optional for migration
+  name           String
+  sourceType     String   // asa | ftd | both
+  status         String   @default("draft")
+  currentStep    String   @default("import")
+  completedSteps String   @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant     Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  artifacts  RawArtifact[]
+  normalized NormalizedData?
+  jobs       Job[]
   projectMembers ProjectMember[]
+
+  @@index([tenantId, id])
 }
 
 model ProjectMember {
@@ -47,100 +191,119 @@ model ProjectMember {
 }
 
 model RawArtifact {
-  id          String   @id @default(uuid())
-  projectId   String
-  filename    String
-  size        Int
-  sha256      String
-  content     String?  // Stored blob - never logged
-  sourceType  String   // asa | ftd
-  uploadedAt  DateTime @default(now())
+  id         String   @id @default(uuid())
+  projectId  String
+  tenantId   String?
+  filename   String
+  size       Int
+  sha256     String
+  content    String?
+  sourceType String   // asa | ftd
+  uploadedAt DateTime @default(now())
 
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model NormalizedData {
-  id            String   @id @default(uuid())
-  projectId     String   @unique
-  objectsJson String   // JSON array
-  rulesJson   String   // JSON array
-  natJson     String   // JSON array
-  interfacesJson String
-  zonesJson   String
-  warningsJson String
-  createdAt   DateTime @default(now())
+  id              String   @id @default(uuid())
+  projectId       String   @unique
+  tenantId        String?
+  objectsJson     String
+  rulesJson       String
+  natJson         String
+  interfacesJson  String
+  zonesJson       String
+  warningsJson    String
+  createdAt       DateTime @default(now())
 
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model InterfaceMappingRecord {
-  id              String   @id @default(uuid())
-  projectId       String
-  asaInterfaceId  String
-  cpInterfaceName String   // MGMT, eth0, eth1, etc.
-  cpIpOverride    String?  // optional - override ASA IP for Check Point
-  cpMaskOverride  String?  // optional - override mask
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(uuid())
+  projectId        String
+  tenantId         String?
+  asaInterfaceId   String
+  cpInterfaceName  String
+  cpIpOverride     String?
+  cpMaskOverride   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([projectId, asaInterfaceId])
+  @@index([tenantId])
 }
 
 model MappingDecisionRecord {
-  id             String   @id @default(uuid())
-  projectId      String
-  entityType     String   // object | service | rule | nat | zone
-  sourceId       String
-  proposedTarget String   // JSON
-  confidenceScore Float
-  reasonsJson    String   // JSON array
-  warningsJson   String   // JSON array
-  userOverrideJson String? // JSON
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id               String   @id @default(uuid())
+  projectId        String
+  tenantId         String?
+  entityType       String
+  sourceId         String
+  proposedTarget   String
+  confidenceScore  Float
+  reasonsJson      String
+  warningsJson     String
+  userOverrideJson String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([projectId, entityType, sourceId])
+  @@index([tenantId])
 }
 
 model ValidationOverride {
-  id        String   @id @default(uuid())
-  projectId String
-  findingId String
+  id             String   @id @default(uuid())
+  projectId      String
+  tenantId       String?
+  findingId      String
   acknowledgedAt DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 model Job {
-  id          String   @id @default(uuid())
-  projectId   String
-  type        String   // parse | export
-  status      String   @default("queued") // queued | running | completed | failed
-  startedAt   DateTime?
-  finishedAt  DateTime?
+  id           String   @id @default(uuid())
+  projectId    String
+  tenantId     String?
+  type         String
+  status       String   @default("queued")
+  startedAt    DateTime?
+  finishedAt   DateTime?
   errorMessage String?
-  createdAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
 
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  logs        JobLog[]
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  logs    JobLog[]
+
+  @@index([tenantId])
 }
 
 model JobLog {
   id        String   @id @default(uuid())
   jobId     String
-  level     String   // info | warn | error
+  level     String
   message   String
   timestamp DateTime @default(now())
 
-  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
 }
+
+// ---------------------------------------------------------------------------
+// Platform / app config (not tenant-scoped)
+// ---------------------------------------------------------------------------
 
 model AppConfig {
   id               String   @id @default("default")
-  modelFetchMethod String   @default("default") // default | litellm
-  litellmBaseUrl   String?  // e.g. http://localhost:4000
-  litellmModel     String?  // e.g. gpt-4, ollama/llama2
-  litellmApiKey    String?  // API key - stored server-side, never returned to client
-  pinHash          String?  // bcrypt hash for config protection
+  modelFetchMethod String   @default("default")
+  litellmBaseUrl   String?
+  litellmModel     String?
+  litellmApiKey    String?
+  pinHash          String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
-

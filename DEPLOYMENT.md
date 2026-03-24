@@ -1,4 +1,4 @@
-# Deployment — CP Migration Tool
+# Deployment — Migrator
 
 ## Single-Command Install (Remote VM)
 

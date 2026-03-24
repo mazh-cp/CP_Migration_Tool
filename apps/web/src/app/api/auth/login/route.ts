@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createSession, verifyCredentials, getSessionCookieName } from '@/lib/auth';
+import { createTenantSession, createSession, verifyCredentials, getSessionCookieName } from '@/lib/auth';
+import { writeAudit, getClientMeta } from '@/lib/audit';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: Request) {
@@ -10,22 +11,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Username and password required' }, { status: 400 });
     }
     const result = await verifyCredentials(username, password);
+    const meta = getClientMeta(req);
     if (!result) {
-      const envUser = process.env.AUTH_USERNAME;
-      const envPass = process.env.AUTH_PASSWORD;
+      await writeAudit({
+        actorUserId: 'anonymous',
+        action: 'login',
+        resourceType: 'auth',
+        resourceId: null,
+        result: 'failure',
+        details: { reason: 'invalid_credentials', username },
+        ...meta,
+      }).catch(() => {});
       logger.warn(
         {
           username,
-          authEnvSet: !!(envUser && envPass),
-          expectedUser: envUser || '(not set)',
-          expectedPasswordLength: envPass ? envPass.length : 0,
-          receivedPasswordLength: password ? password.length : 0,
+          authEnvSet: !!(process.env.AUTH_USERNAME && process.env.AUTH_PASSWORD),
         },
         'Login failed'
       );
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
-    const token = await createSession(username, result.userId, result.isAdmin);
+    let token: string;
+    try {
+      token = await createTenantSession(
+        result.userId,
+        result.username,
+        result.tenantId,
+        meta.ipAddress ?? undefined,
+        meta.userAgent ?? undefined
+      );
+    } catch (sessionErr) {
+      logger.warn({ err: sessionErr, userId: result.userId }, 'createTenantSession failed, using legacy session');
+      token = await createSession(result.username, result.userId, result.isAdmin);
+    }
     const cookieStore = await cookies();
     const secureCookie = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
     cookieStore.set(getSessionCookieName(), token, {
@@ -35,6 +53,16 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
+    await writeAudit({
+      actorUserId: result.userId,
+      tenantId: result.tenantId,
+      action: 'login',
+      resourceType: 'auth',
+      resourceId: result.userId,
+      result: 'success',
+      details: { username },
+      ...meta,
+    }).catch(() => {});
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error({ err }, 'Login failed');

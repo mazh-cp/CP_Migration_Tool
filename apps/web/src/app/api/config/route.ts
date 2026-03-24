@@ -25,14 +25,19 @@ export async function GET() {
     const unlocked = await isConfigUnlocked();
     const config = await prisma.appConfig.findUnique({ where: { id: 'default' } });
     const pinRequired = !!(process.env.CONFIG_PIN);
+    const aiValidationEnabled = process.env.AI_VALIDATION_ENABLED === 'true';
+    const aiValidationOutboundEnabled = process.env.AI_VALIDATION_OUTBOUND_ENABLED === 'true';
     return NextResponse.json({
-    modelFetchMethod: config?.modelFetchMethod ?? 'default',
-    litellmBaseUrl: config?.litellmBaseUrl ?? '',
-    litellmModel: config?.litellmModel ?? 'gpt-4',
-    apiKeyConfigured: !!(config?.litellmApiKey),
-    configUnlocked: unlocked,
-    pinRequired,
-  });
+      modelFetchMethod: config?.modelFetchMethod ?? 'default',
+      litellmBaseUrl: config?.litellmBaseUrl ?? '',
+      litellmModel: config?.litellmModel ?? 'gpt-4',
+      apiKeyConfigured: !!(config?.litellmApiKey),
+      configUnlocked: unlocked,
+      pinRequired,
+      aiValidationEnabled,
+      aiValidationOutboundEnabled,
+      openAiApiKeyConfigured: !!process.env.OPENAI_API_KEY?.trim(),
+    });
   } catch (err) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

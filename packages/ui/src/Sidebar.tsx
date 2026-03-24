@@ -36,7 +36,7 @@ export function Sidebar() {
       <div className="p-6 border-b border-slate-700">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-white">
           <FileText className="w-6 h-6 text-cyan-400" />
-          Cisco to Check Point Firewall Migration Tool
+          Migrator
         </Link>
       </div>
       <nav className="flex-1 p-4 space-y-1">

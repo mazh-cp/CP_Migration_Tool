@@ -1,5 +1,5 @@
 #!/bin/bash
-# CP Migration Tool — Post-install verification
+# Migrator — Post-install verification
 # Run: bash deploy/post_install_checks.sh
 
 set -e

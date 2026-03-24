@@ -1,5 +1,5 @@
 [Unit]
-Description=CP Migration Tool - Cisco ASA/FTD to Check Point Migration
+Description=Migrator - Cisco ASA/FTD to Check Point Migration
 After=network.target
 
 [Service]

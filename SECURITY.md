@@ -1,8 +1,8 @@
-# Security — CP Migration Tool
+# Security — Migrator
 
 ## Overview
 
-CP Migration Tool handles sensitive data: firewall configs (which may contain credentials), user credentials, API keys, and session tokens. This document describes security controls and practices.
+Migrator handles sensitive data: firewall configs (which may contain credentials), user credentials, API keys, and session tokens. This document describes security controls and practices.
 
 ---
 

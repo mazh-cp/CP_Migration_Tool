@@ -1,4 +1,4 @@
-# Release Notes — CP Migration Tool
+# Release Notes — Migrator
 
 ## v1.0.2 (2025-03-10) — Production Fix (jose + SESSION_SECRET)
 
@@ -30,7 +30,7 @@ Existing installations: pull latest, rebuild, restart. Ensure `.env` uses quotes
 
 ## v1.0.0 (2025-03-09) — Production Release
 
-**Project:** CP Migration Tool (formerly Cisco ASA/FTD → Check Point Converter)  
+**Project:** Migrator (formerly Cisco ASA/FTD → Check Point Converter)  
 **Repository:** https://github.com/mazh-cp/CP_Migration_Tool
 
 ### Highlights

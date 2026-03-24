@@ -1,26 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
-import { getProjectAccess, canManageMembers } from '@/lib/project-access';
-
-const SESSION_SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || 'dev-secret-change-in-production'
-);
-const COOKIE_NAME = 'cisco2cp_session';
-
-async function getCurrentUser(): Promise<{ username: string; userId?: string } | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, SESSION_SECRET);
-    return { username: payload.username as string, userId: payload.userId as string | undefined };
-  } catch {
-    return null;
-  }
-}
+import { requireProjectAccess, canManageMembers } from '@/lib/project-access';
 
 const addMemberSchema = z.object({
   userId: z.string().uuid(),
@@ -32,14 +13,11 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params;
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const access = await getProjectAccess(projectId, user.username, user.userId);
-  if (!access) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const auth = await requireProjectAccess(projectId);
+  if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const members = await prisma.projectMember.findMany({
-    where: { projectId },
+    where: { projectId, project: { tenantId: auth.session.tenantId } },
     include: { user: { select: { id: true, username: true } } },
   });
   return NextResponse.json(members.map((m) => ({ id: m.id, userId: m.userId, username: m.user.username, role: m.role })));
@@ -50,11 +28,9 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params;
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const access = await getProjectAccess(projectId, user.username, user.userId);
-  if (!canManageMembers(access)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const auth = await requireProjectAccess(projectId);
+  if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!canManageMembers(auth.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   let body: z.infer<typeof addMemberSchema>;
   try {
@@ -66,11 +42,23 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, tenantId: auth.session.tenantId },
+  });
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
   const targetUser = await prisma.user.findUnique({ where: { id: body.userId } });
   if (!targetUser) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+  const targetMembership = await prisma.tenantMembership.findFirst({
+    where: { userId: body.userId, tenantId: auth.session.tenantId, status: 'active' },
+  });
+  if (!targetMembership) {
+    return NextResponse.json(
+      { error: 'User is not a member of this tenant. Add them to the tenant first.' },
+      { status: 403 }
+    );
+  }
 
   const existing = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId: body.userId } },

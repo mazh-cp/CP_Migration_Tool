@@ -20,6 +20,7 @@ export async function POST(
   const { projectId } = await params;
   const auth = await requireProjectAccess(projectId, true);
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const tenantId = auth.session.tenantId;
 
   const body = (await req.json().catch(() => ({}))) as {
     target?: ExportTarget;
@@ -29,9 +30,9 @@ export async function POST(
   const smsFormat: SmsFormat = body.smsFormat ?? 'both';
 
   const [data, records, ifaceMappings] = await Promise.all([
-    prisma.normalizedData.findUnique({ where: { projectId } }),
-    prisma.mappingDecisionRecord.findMany({ where: { projectId } }),
-    prisma.interfaceMappingRecord.findMany({ where: { projectId } }),
+    prisma.normalizedData.findFirst({ where: { projectId, tenantId } }),
+    prisma.mappingDecisionRecord.findMany({ where: { projectId, tenantId } }),
+    prisma.interfaceMappingRecord.findMany({ where: { projectId, tenantId } }),
   ]);
 
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });

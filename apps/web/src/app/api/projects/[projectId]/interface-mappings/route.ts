@@ -21,7 +21,7 @@ export async function GET(
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const records = await prisma.interfaceMappingRecord.findMany({
-    where: { projectId },
+    where: { projectId, tenantId: auth.session.tenantId },
   });
   return NextResponse.json(
     records.map((r) => ({
@@ -40,6 +40,7 @@ export async function POST(
   const { projectId } = await params;
   const auth = await requireProjectAccess(projectId, true);
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const tenantId = auth.session.tenantId;
 
   let body: z.infer<typeof postSchema>;
   try {
@@ -52,9 +53,6 @@ export async function POST(
     return NextResponse.json({ error: 'Expected array of interface mappings' }, { status: 400 });
   }
 
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
   for (const m of body) {
     await prisma.interfaceMappingRecord.upsert({
       where: {
@@ -62,6 +60,7 @@ export async function POST(
       },
       create: {
         projectId,
+        tenantId,
         asaInterfaceId: m.asaInterfaceId,
         cpInterfaceName: m.cpInterfaceName,
         cpIpOverride: m.cpIpOverride ?? null,
@@ -74,17 +73,22 @@ export async function POST(
       },
     });
   }
+  const projectRow = await prisma.project.findFirst({
+    where: { id: projectId, tenantId },
+    select: { completedSteps: true },
+  });
   const steps: string[] = (() => {
-      try {
-        return typeof project.completedSteps === 'string' ? JSON.parse(project.completedSteps || '[]') : project.completedSteps || [];
-      } catch {
-        return [];
-      }
-    })();
+    if (!projectRow?.completedSteps) return [];
+    try {
+      return typeof projectRow.completedSteps === 'string' ? JSON.parse(projectRow.completedSteps || '[]') : [];
+    } catch {
+      return [];
+    }
+  })();
   if (!steps.includes('map-interfaces')) {
     steps.push('map-interfaces');
-    await prisma.project.update({
-      where: { id: projectId },
+    await prisma.project.updateMany({
+      where: { id: projectId, tenantId },
       data: { completedSteps: JSON.stringify(steps) },
     });
   }

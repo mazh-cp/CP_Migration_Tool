@@ -18,9 +18,7 @@ export async function POST(
   const { projectId } = await params;
   const auth = await requireProjectAccess(projectId, true);
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const tenantId = auth.session.tenantId;
 
   try {
     const body = await req.json();
@@ -35,6 +33,7 @@ export async function POST(
     const artifact = await prisma.rawArtifact.create({
       data: {
         projectId,
+        tenantId,
         filename: filename || 'import',
         size,
         sha256,
@@ -43,8 +42,8 @@ export async function POST(
       },
     });
 
-    await prisma.project.update({
-      where: { id: projectId },
+    await prisma.project.updateMany({
+      where: { id: projectId, tenantId },
       data: { status: 'imported', currentStep: 'parse', completedSteps: JSON.stringify(['import']) },
     });
 

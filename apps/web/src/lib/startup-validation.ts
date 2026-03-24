@@ -21,6 +21,9 @@ export function validateEnv(): void {
       errors.push('SESSION_SECRET must be set and at least 32 characters in production');
     }
     // AUTH_PASSWORD=changeme allowed for initial install; change before production use
+    if (process.env.AI_VALIDATION_OUTBOUND_ENABLED === 'true' && !process.env.OPENAI_API_KEY?.trim()) {
+      errors.push('OPENAI_API_KEY is required when AI_VALIDATION_OUTBOUND_ENABLED=true');
+    }
   }
 
   if (errors.length > 0) {

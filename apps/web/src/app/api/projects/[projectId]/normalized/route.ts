@@ -10,8 +10,8 @@ export async function GET(
   const auth = await requireProjectAccess(projectId);
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const data = await prisma.normalizedData.findUnique({
-    where: { projectId },
+  const data = await prisma.normalizedData.findFirst({
+    where: { projectId, tenantId: auth.session.tenantId },
   });
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json({

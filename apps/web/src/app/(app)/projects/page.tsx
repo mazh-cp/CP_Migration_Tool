@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, FolderKanban } from 'lucide-react';
+import { Plus, FolderKanban, Trash2 } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -14,6 +14,7 @@ interface Project {
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/projects')
@@ -21,6 +22,23 @@ export default function ProjectsPage() {
       .then(setProjects)
       .catch(() => setProjects([]));
   }, []);
+
+  async function handleDelete(project: Project) {
+    if (!confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
+    setDeletingProjectId(project.id);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        alert('Failed to delete project');
+        return;
+      }
+      setProjects((prev) => prev.filter((p) => p.id !== project.id));
+    } catch (err) {
+      alert('Error: ' + (err as Error).message);
+    } finally {
+      setDeletingProjectId(null);
+    }
+  }
 
   return (
     <div>
@@ -46,14 +64,15 @@ export default function ProjectsPage() {
           </div>
         )}
         {projects.map((p) => (
-          <Link
+          <div
             key={p.id}
-            href={`/projects/${p.id}/import`}
-            className="block p-6 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-cyan-500/50 transition-colors"
+            className="p-6 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-cyan-500/50 transition-colors"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="font-semibold text-white">{p.name}</h2>
+                <Link href={`/projects/${p.id}/import`} className="font-semibold text-white hover:text-cyan-300">
+                  {p.name}
+                </Link>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
                     {p.sourceType}
@@ -71,11 +90,23 @@ export default function ProjectsPage() {
                   </span>
                 </div>
               </div>
-              <span className="text-sm text-slate-500">
-                {new Date(p.updatedAt).toLocaleDateString()}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-slate-500">
+                  {new Date(p.updatedAt).toLocaleDateString()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(p)}
+                  disabled={deletingProjectId === p.id}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-300 hover:text-red-200 hover:bg-red-500/10 disabled:opacity-50"
+                  title="Delete project"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deletingProjectId === p.id ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     </div>

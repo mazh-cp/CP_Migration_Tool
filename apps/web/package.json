@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cleanup": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/weekly-cleanup.ts"
   },
   "dependencies": {
     "@cisco2cp/core": "*",
@@ -17,6 +18,7 @@
     "@cisco2cp/ui": "*",
     "@prisma/client": "^5.22.0",
     "jose": "^5.10.0",
+    "node-cron": "^3.0.3",
     "jszip": "^3.10.1",
     "next": "^15.0.3",
     "pino": "^9.5.0",
@@ -31,6 +33,7 @@
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/node-cron": "^3.0.11",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.27",
     "eslint": "^9.15.0",

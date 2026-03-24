@@ -1,7 +1,7 @@
-# Gitleaks configuration for CP Migration Tool
+# Gitleaks configuration for Migrator
 # Run: gitleaks detect --source . --config .gitleaks.toml
 
-title = "CP Migration Tool - Secret Detection"
+title = "Migrator - Secret Detection"
 
 [extend]
 useDefault = true

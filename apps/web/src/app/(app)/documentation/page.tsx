@@ -20,7 +20,7 @@ export default function DocumentationPage() {
         Documentation
       </h1>
       <p className="text-slate-400 mb-8">
-        Reference guides and documentation for the Cisco ASA/FTD → Check Point converter.
+        Reference guides and documentation for Migrator.
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         {docs.map((doc) => (

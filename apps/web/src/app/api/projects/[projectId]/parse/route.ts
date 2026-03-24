@@ -14,9 +14,10 @@ export async function POST(
   const { projectId } = await params;
   const auth = await requireProjectAccess(projectId, true);
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const tenantId = auth.session.tenantId;
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, tenantId },
     include: { artifacts: true },
   });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -27,7 +28,7 @@ export async function POST(
   }
 
   const job = await prisma.job.create({
-    data: { projectId, type: 'parse', status: 'running', startedAt: new Date() },
+    data: { projectId, tenantId, type: 'parse', status: 'running', startedAt: new Date() },
   });
 
   try {
@@ -63,6 +64,7 @@ export async function POST(
       where: { projectId },
       create: {
         projectId,
+        tenantId,
         objectsJson: JSON.stringify(normalized.objects),
         rulesJson: JSON.stringify(normalized.rules),
         natJson: JSON.stringify(normalized.nat),
@@ -91,6 +93,7 @@ export async function POST(
         },
         create: {
           projectId,
+          tenantId,
           entityType: d.entityType,
           sourceId: d.sourceId,
           proposedTarget: JSON.stringify(d.proposedTarget),
