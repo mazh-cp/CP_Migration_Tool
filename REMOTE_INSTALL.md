@@ -64,9 +64,21 @@ Optional: `BRANCH=main PORT=3000` if you need non-default branch or port for the
 | Health check fails | `sudo systemctl status cp-migration-tool`; check logs |
 | `systemctl` status **203/EXEC** | `ExecStart` path invalid or `start.sh` not executable. Run the **upgrade script** above (it reinstalls the unit and `chmod +x start.sh`). Verify: `test -x /opt/cp_migration_tool/apps/web/start.sh` |
 | `Failed to find Server Action` in logs after deploy | Harmless noise from browsers still on an old JS bundle; hard refresh (Ctrl+Shift+R) or clear site data. |
-| `Unexpected token '<', "<!DOCTYPE"...` when importing/parsing | The browser received an **HTML** error page (not JSON). Usually **Nginx/proxy body limit**: large pasted configs exceed `client_max_body_size` (default 1m). Increase in your site config, e.g. `client_max_body_size 50m;` inside `http` or `server`, then `sudo nginx -t && sudo systemctl reload nginx`. Also check **502/504** (app down) and **session** (log in again). |
+| `Unexpected token '<', "<!DOCTYPE"...` when importing/parsing | The browser received an **HTML** error page (not JSON). Often a **reverse proxy** (Nginx, Azure App Gateway, load balancer) rejecting a large POST or returning 502/504 HTML. See **Large uploads / HTML instead of JSON** below. |
 
-### Nginx in front of Migrator (recommended limits)
+### Large uploads / HTML instead of JSON
+
+**Important:** `client_max_body_size 50m;` is **not** a shell command. It is a line you put inside a **web server config file** (only if you use Nginx). Pasting it at the bash prompt will show `command not found`.
+
+**Default VM install (this repo’s script)** runs the app on **port 3000** with **systemd** and does **not** install Nginx. If `sudo nginx` says `command not found`, Nginx is simply not installed — that is normal unless you added it yourself.
+
+| How you reach the app | What to change |
+|----------------------|----------------|
+| **Browser → `http://VM:3000` only** | No Nginx involved. Raise the app limit: edit `/opt/cp_migration_tool/apps/web/.env`, set e.g. `MAX_UPLOAD_MB=50`, then `sudo systemctl restart cp-migration-tool`. Default is 25 MB. |
+| **Azure / corporate URL** (HTTPS, custom domain) | Something else terminates TLS or proxies traffic. In **Azure Portal**, check **Application Gateway**, **Front Door**, **Load Balancer + VM**, or a **jump host Nginx**. Increase **request body / WAF / upload** limits there, or install Nginx on the VM and proxy to `127.0.0.1:3000` with the snippet below. |
+| **You want Nginx on the VM** | Install it, edit a site file, then reload: `sudo apt update && sudo apt install -y nginx`, edit e.g. `/etc/nginx/sites-available/default` (or your vhost), add the `location` block below inside `server { }`, then `sudo nginx -t && sudo systemctl reload nginx`. |
+
+### Nginx in front of Migrator (optional; recommended limits if you use Nginx)
 
 ```nginx
 location / {
