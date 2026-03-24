@@ -21,27 +21,27 @@ export default function ParsePage() {
   const [parsed, setParsed] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/projects/${projectId}/normalized`)
+    fetch(`/api/projects/${projectId}/normalized-summary`)
       .then(async (r) => {
         const parsed = await readApiJson<{
-          objects?: unknown[];
-          rules?: unknown[];
-          nat?: unknown[];
-          interfaces?: unknown[];
-          warnings?: unknown[];
+          objects?: number;
+          rules?: number;
+          nat?: number;
+          interfaces?: number;
+          warnings?: number;
         }>(r);
         if (!r.ok || parsed.isHtml || !parsed.data) return null;
         return parsed.data;
       })
       .then((data) => {
-        if (data) {
+        if (data && typeof data.objects === 'number') {
           setParsed(true);
           setCounts({
-            objects: data.objects?.length || 0,
-            rules: data.rules?.length || 0,
-            nat: data.nat?.length || 0,
-            interfaces: data.interfaces?.length || 0,
-            warnings: data.warnings?.length || 0,
+            objects: data.objects,
+            rules: data.rules ?? 0,
+            nat: data.nat ?? 0,
+            interfaces: data.interfaces ?? 0,
+            warnings: data.warnings ?? 0,
           });
         }
       })
@@ -75,13 +75,13 @@ export default function ParsePage() {
   }
 
   async function applyNormalizedCounts() {
-    const normRes = await fetch(`/api/projects/${projectId}/normalized`);
+    const normRes = await fetch(`/api/projects/${projectId}/normalized-summary`);
     const normParsed = await readApiJson<{
-      objects?: unknown[];
-      rules?: unknown[];
-      nat?: unknown[];
-      interfaces?: unknown[];
-      warnings?: unknown[];
+      objects?: number;
+      rules?: number;
+      nat?: number;
+      interfaces?: number;
+      warnings?: number;
     }>(normRes);
     if (!normRes.ok || normParsed.isHtml || !normParsed.data) {
       setParsed(true);
@@ -91,11 +91,11 @@ export default function ParsePage() {
     const data = normParsed.data;
     setParsed(true);
     setCounts({
-      objects: data.objects?.length || 0,
-      rules: data.rules?.length || 0,
-      nat: data.nat?.length || 0,
-      interfaces: data.interfaces?.length || 0,
-      warnings: data.warnings?.length || 0,
+      objects: data.objects ?? 0,
+      rules: data.rules ?? 0,
+      nat: data.nat ?? 0,
+      interfaces: data.interfaces ?? 0,
+      warnings: data.warnings ?? 0,
     });
     router.refresh();
   }

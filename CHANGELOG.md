@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - **Parse / 504:** `POST /parse` returns **202** immediately and runs normalize/map in the **background**; UI polls `GET /status?jobId=` so Azure/nginx gateways no longer time out on large configs.
+- **Parse UI / 504 after success:** Parse page used `GET /normalized` (very large JSON) for counts — gateways could **504** even when parse logged complete. Added **`GET /normalized-summary`** (counts only).
 
 ## [1.1.0] - 2025-03-24
 

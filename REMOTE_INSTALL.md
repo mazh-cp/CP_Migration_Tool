@@ -73,7 +73,7 @@ Optional: `BRANCH=main PORT=3000` if you need non-default branch or port for the
 | `systemctl` status **203/EXEC** | `ExecStart` path invalid or `start.sh` not executable. Run the **upgrade script** above (it reinstalls the unit and `chmod +x start.sh`). Verify: `test -x /opt/cp_migration_tool/apps/web/start.sh` |
 | `Failed to find Server Action` in logs after deploy | Harmless noise from browsers still on an old JS bundle; hard refresh (Ctrl+Shift+R) or clear site data. |
 | `Unexpected token '<', "<!DOCTYPE"...` when importing/parsing | The browser received an **HTML** error page (not JSON). Often a **reverse proxy** (Nginx, Azure App Gateway, load balancer) rejecting a large POST or returning 502/504 HTML. See **Large uploads / HTML instead of JSON** below. |
-| **HTTP 504** on **Run Parse** (HTML error in alert) | **Gateway timeout:** the proxy gave up before the app finished. Current app returns **202** quickly and finishes parse in the background — **upgrade to latest `main`**. Also raise timeouts: **Azure Application Gateway** → backend settings → **Request timeout** (up to 900s on v2 where supported); **Nginx** → `proxy_read_timeout 600s;` `proxy_send_timeout 600s;` and reload. |
+| **HTTP 504** on **Run Parse** (HTML error in alert) | **Gateway timeout:** the proxy stopped waiting for an HTTP response; **`journalctl` can still show "Parse completed"** because Node kept working. **Upgrade to latest `main`** (202 + **normalized-summary** counts). If it persists, raise proxy timeouts: **Azure Application Gateway** → backend **Request timeout**; **Nginx** → `proxy_read_timeout` / `proxy_send_timeout` **600s**. Hard-refresh the browser (Ctrl+Shift+R) after deploy. |
 
 ### Large uploads / HTML instead of JSON
 
