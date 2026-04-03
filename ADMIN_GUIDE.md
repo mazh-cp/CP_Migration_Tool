@@ -89,12 +89,44 @@ Use this sequence to take a FortiGate configuration through to Check Point expor
 9. **Export**  
    Choose **SMS only**, **Gateway only**, or **Both**; for SMS pick **Mgmt API**, **SmartConsole**, and/or **Both** → **Download** the ZIP/artifacts.
 
-**Optional imports (same project, before or with parse):**
+**Optional (same project, before or with parse):**
 
 - **FortiAnalyzer** — `sourceType` **fortianalyzer** (JSON or CSV hit data) can be added so parse merges **hit counts** into normalized rules when a firewall config artifact exists. Import the **latest** firewall config by upload time when combining artifacts.
-- **FortiManager** — Use **Fortinet FortiManager (policy package)** as the project source type; paste/upload JSON or use **live pull** (`/import/fortimanager-live`) per your deployment policy. Subsequent steps are the same.
 
 End-user detail: [USER_GUIDE.md](USER_GUIDE.md). State machine and API-oriented flow: [docs/process-flow.md](docs/process-flow.md).
+
+---
+
+## FortiManager (policy package) → Check Point — operator workflow
+
+Same **Parse → Map → Validate → Export** stepper as FortiGate; only **Import** differs. You need the **ADOM** name, **policy package** name, and optionally a **VDOM** segment if the package is scoped per VDOM.
+
+1. **Prepare inputs**  
+   Either:  
+   - A **JSON bundle** that matches what Migrator expects (policy package firewall rules plus object DB: addresses, groups, custom services, service groups)—typically from FortiManager JSON API export or a prior live pull, **or**  
+   - **Network access** from the **Migrator server** to FortiManager’s HTTPS **base URL** for **live pull** (production installs usually require a routable manager URL; lab-only **`FMG_ALLOW_PRIVATE_URLS`** relaxes private/loopback checks—see `apps/web/.env.example`).
+
+2. **Create project**  
+   **Projects** → **New Project** → **Source type: Fortinet FortiManager (policy package)** → **Create & Import**.
+
+3. **Import — file or paste**  
+   On **Import**, select **Fortinet FortiManager (JSON bundle)**. **Paste** the JSON or **upload** a `.json` file → **Import & Continue**. Respect **`MAX_UPLOAD_MB`**; **413** if over limit.
+
+4. **Import — live API pull (alternative)**  
+   On the same Import page, use **FortiManager — live API pull**:  
+   - **Base URL** — e.g. `https://fortimanager.example.com` (no trailing slash required).  
+   - **Session key** from an API admin on FortiManager, **or** enable **username / password** for a one-shot login (credentials are used only for that request and are **not stored**).  
+   - **ADOM** and **Policy package** (required); **VDOM** if applicable.  
+   - **Pull from FortiManager & import**.  
+   On success you are sent to **Parse** like file import.
+
+5. **Parse**  
+   **Run Parse** (async **202** + poll). Review counts and warnings → **Map Interfaces**.
+
+6. **Map Interfaces → Map Objects → Map Policy → Validate → Export**  
+   Same as the FortiGate workflow above.
+
+**Optional:** Add **FortiAnalyzer** hit data on Import before parse to merge hit counts when a compatible firewall/manager artifact set exists.
 
 ---
 

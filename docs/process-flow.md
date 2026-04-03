@@ -89,6 +89,15 @@
 
 **FortiGate note:** One primary firewall config artifact per parse path; optional **FortiAnalyzer** artifact can be imported in addition so parse merges hit statistics when both are present.
 
+**FortiManager note:** Two import paths, same downstream phases:
+
+| Path | How | Server behavior |
+|------|-----|-----------------|
+| **JSON file / paste** | User selects **FortiManager (JSON bundle)**; POST `/api/projects/[id]/import` with `sourceType: fortimanager` | Bundle stored as artifact; no outbound call to FortiManager. |
+| **Live API pull** | Import page form: **Base URL**, **session** or **username+password**, **ADOM**, **policy package**, optional **VDOM**; POST `.../import/fortimanager-live` | Server-side JSON-RPC fetch; credentials used only for that request, not persisted. URL host validated against private/loopback IPs unless **`FMG_ALLOW_PRIVATE_URLS`** is set (lab). |
+
+After either path, status becomes **imported** and the user continues to **Parse** like other source types.
+
 ---
 
 ### Phase 3: Parse & Normalize

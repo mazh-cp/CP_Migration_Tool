@@ -8,7 +8,7 @@ This guide walks you through converting firewall configurations to Check Point f
 
 ## Overview
 
-The workflow has 8 steps (same for ASA, FTD, and **FortiGate** after you pick the right source type):
+The workflow has 8 steps (same for ASA, FTD, **FortiGate**, and **FortiManager** after you pick the right source type):
 
 1. Create Project  
 2. Import Config  
@@ -80,13 +80,56 @@ Use this path when the source firewall is a **FortiGate** (FortiOS CLI configura
 
 ---
 
+## FortiManager (policy package) → Check Point — step by step
+
+Use this when the source of truth is a **FortiManager ADOM policy package** (not a standalone FortiGate CLI backup).
+
+### 1. Know your package scope
+
+- **ADOM** name (e.g. `root` or a custom ADOM).
+- **Policy package** name installed in that ADOM.
+- **VDOM** (optional): if the package path in FortiManager is scoped to a VDOM, enter the same **VDOM** on live pull; omit if not used.
+
+### 2. Create project
+
+- **Dashboard** → **Create New Project**, or **Projects** → **New Project**
+- **Source type: Fortinet FortiManager (policy package)**
+- **Create & Import** → **Import** page
+
+### 3. Import — JSON paste or file
+
+- Set **Source type** to **Fortinet FortiManager (JSON bundle)**.
+- **Paste** the bundle or **upload** a `.json` file (same structure Migrator expects: addresses, groups, services, firewall policy for the package).
+- **Import & Continue** → **Parse**.
+
+### 4. Import — live pull from FortiManager (alternative)
+
+- Scroll to **FortiManager — live API pull** on the Import page.
+- **Base URL**: `https://your-fortimanager.example` (Migrator server must reach this URL over the network).
+- Authentication (pick one):
+  - **Session key** from a FortiManager API admin, **or**
+  - Check **Use username / password** and enter API user credentials (used **only for this request**, not stored).
+- Enter **ADOM**, **Policy package**, and **VDOM** if required.
+- **Pull from FortiManager & import** → **Parse** on success.
+
+**Note:** In production, use a proper hostname/TLS. For lab firewalls using private IPs, the server may require **`FMG_ALLOW_PRIVATE_URLS`** (see admin env reference).
+
+### 5. Parse through Export
+
+- **Run Parse** (background job; wait for completion).
+- **Map Interfaces** → **Map Objects** → **Map Policy** → **Validate** → **Export** — same as the FortiGate section above.
+
+**Optional:** Import **FortiAnalyzer** hit data after the manager bundle if you want hit counts merged on parse (see FortiGate section).
+
+---
+
 ## Step-by-Step Usage (ASA / FTD)
 
 ### 1. Create Project
 
 - Go to **Dashboard** → **Create New Project**, or **Projects** → **New Project**
 - Enter a **project name** (e.g. "Branch-FW-Migration")
-- Select **source type**: **ASA**, **FTD**, or **Fortinet FortiGate** (FortiGate detail above)
+- Select **source type**: **ASA**, **FTD**, **Fortinet FortiGate**, or **Fortinet FortiManager** (FortiGate / FortiManager detail above)
 - Click **Create & Import**
 - You are redirected to the Import page
 
@@ -97,7 +140,8 @@ Use this path when the source firewall is a **FortiGate** (FortiOS CLI configura
 - **Paste** your configuration into the text area, or **upload** a file  
   - ASA: `.txt`, `.cfg`  
   - FTD: `.json` or ASA-compatible text  
-  - **FortiGate:** `.conf` / `.txt` full backup (see FortiGate section above)
+  - **FortiGate:** `.conf` / `.txt` full backup (see FortiGate section above)  
+  - **FortiManager:** `.json` policy bundle, **or** use **live API pull** (see FortiManager section above)
 - Ensure the **source type** on the Import page matches the project
 - Click **Import & Continue**
 - The config is stored and you proceed to the Parse page

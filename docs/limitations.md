@@ -10,6 +10,7 @@
 - **ASA-specific syntax**: Some legacy or obscure commands
 - **FTD**: Limited FTD JSON schema support; text parsing uses ASA logic
 - **FortiGate / FortiOS**: IPv4 firewall policies, addresses, groups, custom services, and common object types are in scope; advanced UTM, SSL inspection profiles, SD-WAN, and VPN-heavy configs may be partial or unsupported—review warnings and validation after parse
+- **FortiManager**: Imports are **per policy package** JSON bundle (paste/upload or live JSON-RPC pull). Object DB + IPv4 firewall policy for that package are in scope; features outside the exported CMDB slice (dynamic objects, full device provisioning, non-IPv4 policy types) may be partial—review warnings after parse
 
 ## Data Safety
 

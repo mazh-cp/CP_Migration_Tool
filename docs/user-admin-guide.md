@@ -58,7 +58,9 @@ Within a project, use the stepper to move between:
 
 - Import → Parse → Map Interfaces → Map Objects → Map Policy → Validate → Export
 
-**FortiGate path:** Create the project with **Source type: Fortinet FortiGate**, import a `.conf`/`.txt` FortiOS backup, then follow the same steps through Export. See **§6** for a full checklist.
+**FortiGate path:** **Source type: Fortinet FortiGate** → import `.conf`/`.txt` → same stepper to Export. Checklist: **§6**.
+
+**FortiManager path:** **Source type: Fortinet FortiManager (policy package)** → paste/upload JSON **or** **live API pull** on Import → same stepper. Checklist: **§7**.
 
 ---
 
@@ -125,18 +127,37 @@ Administrators can use this checklist when onboarding operators.
 | 8 | **Validate** | Clear errors → **Export**. |
 | 9 | **Export** | SMS / Gateway / Both; choose Mgmt API and/or SmartConsole → **Download**. |
 
-**Optional:** Import **FortiAnalyzer** hit data (`fortianalyzer`) to merge hit counts on parse when a firewall config is present. **FortiManager** projects use **Fortinet FortiManager** as source type (JSON or live API import); the same stepper applies after import.
+**Optional:** Import **FortiAnalyzer** hit data (`fortianalyzer`) to merge hit counts on parse when a firewall config is present.
 
 ---
 
-## 7. Logout
+## 7. FortiManager (policy package) → Check Point (step-by-step)
+
+| Step | UI / action | Notes |
+|------|-------------|--------|
+| 1 | Gather **ADOM**, **policy package**, optional **VDOM** | Must match the package you are migrating. |
+| 2 | **Projects** → **New Project** | **Source type: Fortinet FortiManager (policy package)** → **Create & Import**. |
+| 3a | **Import** — paste/upload | Source **FortiManager (JSON bundle)**; paste or upload `.json` → **Import & Continue**. |
+| 3b | **Import** — **live API pull** | **Base URL** (HTTPS), **session key** *or* **username/password**, **ADOM**, **package**, optional **VDOM** → **Pull from FortiManager & import**. Credentials not stored server-side. |
+| 4 | **Parse** → **Run Parse** | Async job; review counts/warnings → **Map Interfaces**. |
+| 5 | **Map Interfaces** | Map source interfaces to Check Point → **Map Objects**. |
+| 6 | **Map Objects** | Review/edit names and services → **Map Policy**. |
+| 7 | **Map Policy** | Rules/NAT → **Validate**. |
+| 8 | **Validate** | Clear errors → **Export**. |
+| 9 | **Export** | SMS / Gateway / Both; Mgmt API and/or SmartConsole → **Download**. |
+
+**Ops:** Migrator server must reach FortiManager for live pull. Production URLs should be reachable and TLS-valid; **`FMG_ALLOW_PRIVATE_URLS`** is for lab use only.
+
+---
+
+## 8. Logout
 
 - Sidebar → **Log out**.
 - Session cookie is cleared and you are redirected to **/login**.
 
 ---
 
-## 8. Security Considerations
+## 9. Security Considerations
 
 1. **Credentials:** Use strong `AUTH_USERNAME` and `AUTH_PASSWORD`; never use defaults in production.
 2. **SESSION_SECRET:** Must be set and at least 32 characters in production.
@@ -145,7 +166,7 @@ Administrators can use this checklist when onboarding operators.
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Issue | Possible cause | Action |
 |-------|----------------|--------|
