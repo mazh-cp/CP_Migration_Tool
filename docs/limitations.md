@@ -9,6 +9,7 @@
 - **Complex object-group nesting**: Deep nesting may not fully resolve
 - **ASA-specific syntax**: Some legacy or obscure commands
 - **FTD**: Limited FTD JSON schema support; text parsing uses ASA logic
+- **FortiGate / FortiOS**: IPv4 firewall policies, addresses, groups, custom services, and common object types are in scope; advanced UTM, SSL inspection profiles, SD-WAN, and VPN-heavy configs may be partial or unsupported—review warnings and validation after parse
 
 ## Data Safety
 

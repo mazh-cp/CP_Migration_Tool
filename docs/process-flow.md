@@ -1,7 +1,7 @@
 # Process Flow Document
 
-**Cisco ASA/FTD → Check Point Converter**  
-**Version:** 0.9.0-rc1
+**Cisco ASA / FTD / Fortinet → Check Point Migrator**  
+**Version:** 1.4.0
 
 ---
 
@@ -33,9 +33,9 @@
        │                      │                   │                   └─────────▶│   Export     │
        │                      │                   │                              └──────────────┘
        │                      │                   │
-       │                      │                   └── Paste or upload ASA/FTD config
+       │                      │                   └── Paste or upload ASA / FTD / FortiGate / FortiManager / FortiAnalyzer
        │                      │
-       │                      └── Name + source type (ASA | FTD)
+       │                      └── Name + source type (ASA | FTD | Fortinet FortiGate | Fortinet FortiManager)
        │
        └── AUTH_USERNAME / AUTH_PASSWORD
 ```
@@ -61,7 +61,7 @@
 |------|--------|---------|
 | 1 | Dashboard → Create New Project | Navigate to /projects/new |
 | 2 | Enter project name | Required |
-| 3 | Select source type (ASA or FTD) | Required |
+| 3 | Select source type | **ASA**, **FTD**, **Fortinet FortiGate**, or **Fortinet FortiManager** (policy package) |
 | 4 | Click Create & Import | POST /api/projects, redirect to Import |
 
 ---
@@ -71,11 +71,23 @@
 | Step | Action | Outcome |
 |------|--------|---------|
 | 1 | Paste config or upload file | Content in memory |
-| 2 | Verify source type | Must match project |
+| 2 | Verify source type | Must match project (and artifact kind: firewall vs analyzer vs manager) |
 | 3 | Click Import & Continue | POST /api/projects/[id]/import |
 | 4 | Success | RawArtifact stored, status=imported, redirect to Parse |
 
-**Constraints:** Max file size = MAX_UPLOAD_MB (default 25 MB). Supported formats: .txt, .cfg, .json.
+**Constraints:** Max file size = MAX_UPLOAD_MB (default 25 MB); oversized payloads may return **413**.
+
+**Formats by source:**
+
+| Source | Typical upload |
+|--------|----------------|
+| ASA | `.txt`, `.cfg` text |
+| FTD | JSON or ASA-compatible text |
+| **Fortinet FortiGate** | FortiOS full config **`.conf` / `.txt`** (CLI backup or `show full-configuration` style) |
+| FortiManager | Policy package **JSON** (paste/upload) or live JSON-RPC import |
+| FortiAnalyzer (optional) | JSON (`hits` array) or CSV with policy id/name + hits |
+
+**FortiGate note:** One primary firewall config artifact per parse path; optional **FortiAnalyzer** artifact can be imported in addition so parse merges hit statistics when both are present.
 
 ---
 
@@ -84,7 +96,7 @@
 | Step | Action | Outcome |
 |------|--------|---------|
 | 1 | Click Run Parse | POST /api/projects/[id]/parse → **202** + `jobId`; UI polls GET `/api/projects/[id]/status?jobId=` until complete (avoids proxy **504** on long parses) |
-| 2 | Parser runs | AST from ASA or FTD |
+| 2 | Parser runs | AST from ASA, FTD JSON/text, **FortiOS CLI config**, or FortiManager bundle |
 | 3 | Normalizer runs | Vendor-neutral objects, rules, NAT, interfaces |
 | 4 | Mapping engine proposes targets | MappingDecision records created |
 | 5 | Validator runs | Initial findings |
@@ -97,7 +109,7 @@
 
 | Step | Action | Outcome |
 |------|--------|---------|
-| 1 | View ASA interfaces | From normalized data |
+| 1 | View source firewall interfaces | From normalized data (ASA, FTD, or FortiGate) |
 | 2 | Map each to Check Point | MGMT, eth0, eth1, etc. or custom |
 | 3 | Optional: IP/mask override | For Check Point topology |
 | 4 | Click Save mappings | POST /api/projects/[id]/interface-mappings |
@@ -171,7 +183,7 @@
 
 | Decision | Options | Impact |
 |----------|---------|--------|
-| Source type | ASA / FTD | Parser and normalizer choice |
+| Source type | ASA / FTD / Fortinet FortiGate / Fortinet FortiManager | Parser and normalizer choice |
 | Missing object reference | Placeholder / Replace with Any / Custom | Validation and export |
 | Export target | SMS / Gateway / Both | Output format |
 | SMS format | Mgmt API / SmartConsole / Both | File structure in ZIP |
@@ -181,7 +193,7 @@
 ## 5. Data Flow Summary
 
 ```
-Raw Config (ASA/FTD text or JSON)
+Raw Config (ASA/FTD text or JSON; FortiOS .conf/.txt; FortiManager JSON; optional FortiAnalyzer)
     │
     ▼
 Parser (AST)

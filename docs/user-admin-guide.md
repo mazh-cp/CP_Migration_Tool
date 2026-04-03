@@ -1,13 +1,13 @@
 # User Admin Guide
 
-**Cisco ASA/FTD → Check Point Converter**  
-**Version:** 0.9.0-rc1
+**Cisco ASA / FTD / Fortinet → Check Point Migrator**  
+**Version:** 1.4.0
 
 ---
 
 ## 1. Overview
 
-This guide covers administrative access, authentication, configuration, and security for the Cisco → Check Point converter application.
+This guide covers administrative access, authentication, configuration, and security for the Migrator application (ASA, FTD, FortiGate/FortiManager paths → Check Point).
 
 ---
 
@@ -58,6 +58,8 @@ Within a project, use the stepper to move between:
 
 - Import → Parse → Map Interfaces → Map Objects → Map Policy → Validate → Export
 
+**FortiGate path:** Create the project with **Source type: Fortinet FortiGate**, import a `.conf`/`.txt` FortiOS backup, then follow the same steps through Export. See **§6** for a full checklist.
+
 ---
 
 ## 4. Settings
@@ -100,19 +102,41 @@ These settings apply when the application uses AI-assisted features.
 | `UPLOAD_DIR` | No | Upload directory (default `./data/uploads`) |
 | `MAX_UPLOAD_MB` | No | Max upload size in MB (default 25) |
 | `LOG_LEVEL` | No | trace \| debug \| info \| warn \| error |
+| `FMG_ALLOW_PRIVATE_URLS` | No | Lab only: allow FortiManager live import to use private/loopback URLs |
+| `AUTH_DIAGNOSTIC_ENABLED` | No | Production: set `true` to enable `GET /api/auth/diagnostic` (default off in prod) |
 
 Copy `apps/web/.env.example` to `apps/web/.env` and adjust values.
 
 ---
 
-## 6. Logout
+## 6. FortiGate configuration → Check Point (step-by-step)
+
+Administrators can use this checklist when onboarding operators.
+
+| Step | UI / action | Notes |
+|------|-------------|--------|
+| 1 | Obtain FortiOS backup | Full config text (`.conf` / `.txt`); GUI backup or CLI `show full-configuration` style output. |
+| 2 | **Projects** → **New Project** | **Source type: Fortinet FortiGate** → **Create & Import**. |
+| 3 | **Import** | Select **Fortinet FortiGate**; paste or upload → **Import & Continue**. Max size from `MAX_UPLOAD_MB`. |
+| 4 | **Parse** → **Run Parse** | Async job; wait for completion, review counts/warnings → **Map Interfaces**. |
+| 5 | **Map Interfaces** | Map FortiGate interfaces to Check Point names → save → **Map Objects**. |
+| 6 | **Map Objects** | Review/edit Check Point object names and service ports → **Map Policy**. |
+| 7 | **Map Policy** | Review rules/NAT; apply overrides where needed → **Validate**. |
+| 8 | **Validate** | Clear errors → **Export**. |
+| 9 | **Export** | SMS / Gateway / Both; choose Mgmt API and/or SmartConsole → **Download**. |
+
+**Optional:** Import **FortiAnalyzer** hit data (`fortianalyzer`) to merge hit counts on parse when a firewall config is present. **FortiManager** projects use **Fortinet FortiManager** as source type (JSON or live API import); the same stepper applies after import.
+
+---
+
+## 7. Logout
 
 - Sidebar → **Log out**.
 - Session cookie is cleared and you are redirected to **/login**.
 
 ---
 
-## 7. Security Considerations
+## 8. Security Considerations
 
 1. **Credentials:** Use strong `AUTH_USERNAME` and `AUTH_PASSWORD`; never use defaults in production.
 2. **SESSION_SECRET:** Must be set and at least 32 characters in production.
@@ -121,7 +145,7 @@ Copy `apps/web/.env.example` to `apps/web/.env` and adjust values.
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Issue | Possible cause | Action |
 |-------|----------------|--------|

@@ -3,7 +3,7 @@ import { BookOpen } from 'lucide-react';
 
 const docs = [
   { slug: 'user-guide', title: 'User Guide', description: 'Step-by-step conversion workflow' },
-  { slug: 'user-admin-guide', title: 'User Admin Guide', description: 'Login, settings, and configuration' },
+  { slug: 'user-admin-guide', title: 'User Admin Guide', description: 'Login, settings, FortiGate workflow checklist' },
   { slug: 'process-flow', title: 'Process Flow', description: 'Conversion process and state flow' },
   { slug: 'architecture', title: 'Architecture', description: 'Module structure and pipeline' },
   { slug: 'mapping-support-matrix', title: 'Mapping Support Matrix', description: 'ASA → Check Point mapping details' },

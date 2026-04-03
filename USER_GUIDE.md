@@ -1,14 +1,14 @@
 # User Guide — Migrator
 
-**Cisco ASA/FTD → Check Point Migration**
+**Cisco ASA / FTD / Fortinet → Check Point Migration**
 
-This guide walks you through converting Cisco ASA or FTD configurations to Check Point format using Migrator.
+This guide walks you through converting firewall configurations to Check Point format using Migrator.
 
 ---
 
 ## Overview
 
-The workflow has 8 steps:
+The workflow has 8 steps (same for ASA, FTD, and **FortiGate** after you pick the right source type):
 
 1. Create Project  
 2. Import Config  
@@ -21,13 +21,72 @@ The workflow has 8 steps:
 
 ---
 
-## Step-by-Step Usage
+## FortiGate (FortiOS) → Check Point — step by step
+
+Use this path when the source firewall is a **FortiGate** (FortiOS CLI configuration backup).
+
+### 1. Export the FortiGate configuration
+
+- From the FortiGate **GUI**: use **Backup** (configuration) and download plain text, **or**
+- From **CLI**: save output of a **full configuration** dump (e.g. `show full-configuration`) to a **`.conf`** or **`.txt`** file.
+- Use one file per Migrator project. If you use **VDOMs**, export the scope (global vs VDOM) that matches what you are migrating.
+
+### 2. Create project
+
+- **Dashboard** → **Create New Project**, or **Projects** → **New Project**
+- Enter a **project name**
+- Select **Source type: Fortinet FortiGate**
+- Click **Create & Import** → opens **Import**
+
+### 3. Import
+
+- Confirm **Fortinet FortiGate** is selected on the Import page.
+- **Paste** the full config or **upload** your `.conf` / `.txt` file.
+- Click **Import & Continue** → **Parse** page.
+
+**Optional — hit counts:** You can also import **FortiAnalyzer** data (`sourceType` **fortianalyzer**, JSON or CSV) so that **Parse** merges **hit counts** into rules when a firewall configuration is already imported. Prefer importing the **newest** firewall config artifact when combining multiple imports.
+
+### 4. Parse & Normalize
+
+- Click **Run Parse**. Parsing runs in the **background**; the page polls until the job finishes.
+- Review **Objects**, **Rules**, **NAT**, **Interfaces**, and **Warnings**.
+- Click **Proceed to Map Interfaces**.
+
+### 5. Map Interfaces
+
+- Map each **FortiGate** interface to the target **Check Point** interface name (and IP/mask overrides if needed).
+- **Save mappings** → **Map Objects**.
+
+### 6. Map Objects
+
+- Review proposed **Check Point** names for hosts, networks, groups, and services.
+- **Edit** names or service **ports/ranges** before export if your naming standard requires it.
+- **Map Policy**.
+
+### 7. Map Policy
+
+- Review **access rules** and **NAT**; adjust using supported overrides where shown.
+- **Validate**.
+
+### 8. Validate & Fix
+
+- Resolve **errors** (missing references, invalid export names, etc.).
+- **Re-validate** until no blocking errors → **Export**.
+
+### 9. Export
+
+- Choose **SMS only**, **Gateway only**, or **Both**.
+- For SMS: **Mgmt API**, **SmartConsole**, or **Both** → **Download** the ZIP/artifacts.
+
+---
+
+## Step-by-Step Usage (ASA / FTD)
 
 ### 1. Create Project
 
 - Go to **Dashboard** → **Create New Project**, or **Projects** → **New Project**
 - Enter a **project name** (e.g. "Branch-FW-Migration")
-- Select **source type**: ASA or FTD
+- Select **source type**: **ASA**, **FTD**, or **Fortinet FortiGate** (FortiGate detail above)
 - Click **Create & Import**
 - You are redirected to the Import page
 
@@ -35,13 +94,16 @@ The workflow has 8 steps:
 
 ### 2. Import
 
-- **Paste** your Cisco ASA/FTD configuration into the text area, or **upload** a file (`.txt`, `.cfg`, or `.json` for FTD)
-- Ensure the **source type** matches the project (ASA or FTD)
+- **Paste** your configuration into the text area, or **upload** a file  
+  - ASA: `.txt`, `.cfg`  
+  - FTD: `.json` or ASA-compatible text  
+  - **FortiGate:** `.conf` / `.txt` full backup (see FortiGate section above)
+- Ensure the **source type** on the Import page matches the project
 - Click **Import & Continue**
 - The config is stored and you proceed to the Parse page
 
 **Tips:**
-- Max file size is 25 MB (configurable via `MAX_UPLOAD_MB`)
+- Max file size is 25 MB (configurable via `MAX_UPLOAD_MB`); very large configs may return **413** if over the limit
 - For FTD, use JSON export or text format compatible with ASA
 
 ---
@@ -50,7 +112,12 @@ The workflow has 8 steps:
 
 - Click **Run Parse**
 - The parser converts the config into normalized objects, rules, NAT, and interfaces
-- Review the counts: Objects, Rules, NAT, Interfaces, Warnings
+- Review the counts:
+  - **Objects** — Network and service objects
+  - **Rules** — Access rules
+  - **NAT** — NAT statements
+  - **Interfaces** — Source firewall interfaces
+  - **Warnings** — Unsupported or ambiguous constructs
 - Click **Proceed to Map Interfaces**
 - You can **Re-run Parse** if you change the source config
 
@@ -58,7 +125,7 @@ The workflow has 8 steps:
 
 ### 4. Map Interfaces
 
-- For each ASA interface, select the Check Point interface (MGMT, eth0, eth1, etc.)
+- For each **source** interface (ASA, FTD, or FortiGate), select the Check Point interface (MGMT, eth0, eth1, etc.)
 - Optionally set **IP override** and **Mask override**
 - Click **Save mappings** → **Next: Map Objects**
 
@@ -68,7 +135,7 @@ The workflow has 8 steps:
 
 - Review proposed Check Point mappings for network objects and services
 - **Confidence:** Green (high), Amber (medium), Red (low)
-- Edit mappings as needed
+- Edit mappings as needed (including Check Point export names and service ports where supported)
 - Click **Next: Map Policy**
 
 ---
@@ -108,6 +175,9 @@ The workflow has 8 steps:
 |--------|--------|
 | ASA | Plain text (.txt, .cfg) |
 | FTD | JSON or ASA-compatible text |
+| **FortiGate (FortiOS)** | Full configuration **.conf** / **.txt** (CLI backup or `show full-configuration` style) |
+| FortiManager | Policy package **JSON** (paste/upload or live import, depending on setup) |
+| FortiAnalyzer (optional) | JSON or CSV hit data (use with a firewall config for merged hits on parse) |
 
 | Export | Output |
 |--------|--------|
@@ -121,7 +191,9 @@ The workflow has 8 steps:
 
 | Issue | Action |
 |-------|--------|
-| Parse fails | Check source format; ensure ASA/FTD syntax |
+| Parse fails | Check source format; ensure ASA/FTD/FortiOS syntax; FortiGate needs full config text |
 | Missing object refs | Fix in Validate step before export |
 | Export blocked | Resolve all validation errors |
 | Large file rejected | Check `MAX_UPLOAD_MB` in environment |
+
+See [docs/limitations.md](docs/limitations.md) for unsupported features.
