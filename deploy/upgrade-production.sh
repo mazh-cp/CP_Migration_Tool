@@ -12,20 +12,20 @@
 #   curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo bash
 #
 # Pinned tag (pick one):
-#   curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.4.0/deploy/upgrade-production.sh | sudo bash -s -- v1.4.0
-#   curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.4.0/deploy/upgrade-production.sh | sudo env BRANCH=v1.4.0 bash
+#   curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.4.1/deploy/upgrade-production.sh | sudo bash -s -- v1.4.1
+#   curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.4.1/deploy/upgrade-production.sh | sudo env BRANCH=v1.4.1 bash
 #
 # Optional: REPO_SLUG DOC_RELEASE_TAG (see update_azure_ubuntu.sh)
 # =============================================================================
 set -eo pipefail
 
-# Positional ref when piped: curl ... | sudo bash -s -- v1.4.0
+# Positional ref when piped: curl ... | sudo bash -s -- v1.4.1
 if [[ -z "${BRANCH:-}" && -n "${1:-}" ]]; then
   export BRANCH="$1"
   shift || true
 fi
 
-export DOC_RELEASE_TAG="${DOC_RELEASE_TAG:-v1.4.0}"
+export DOC_RELEASE_TAG="${DOC_RELEASE_TAG:-v1.4.1}"
 export BRANCH="${BRANCH:-main}"
 
 THIS="${BASH_SOURCE[0]:-}"

@@ -4,7 +4,7 @@
 
 Convert Cisco ASA, FTD, or Fortinet FortiGate configurations to Check Point equivalents. Modular, explainable, safe-by-default.
 
-**Version:** 1.4.0  
+**Version:** 1.4.1  
 **Repository:** https://github.com/mazh-cp/CP_Migration_Tool
 
 ---

@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-04-04
+
+### Added
+
+- **Documentation:** Step-by-step **FortiGate** (FortiOS) import → parse → Check Point export in `ADMIN_GUIDE.md`, `USER_GUIDE.md`, `docs/user-guide.md`, `docs/user-admin-guide.md`, and `docs/process-flow.md`.
+- **Documentation:** Parallel **FortiManager** (JSON paste/upload and live API pull) workflow in the same guides; **FortiManager** scope note in `docs/limitations.md`.
+
+### Changed
+
+- **Deploy:** Pinned examples and default `DOC_RELEASE_TAG` / remote upgrade default ref updated to **v1.4.1** (`deploy/upgrade-production.sh`, `deploy/update_azure_ubuntu.sh`, `deploy/upgrade-remote-production.sh`, `deploy/UPGRADE.md`, `deploy/install_azure_ubuntu.sh` header).
+
 ## [1.4.0] - 2026-04-03
 
 ### Added
