@@ -14,6 +14,13 @@ export async function GET(
     where: { projectId, tenantId: auth.session.tenantId },
   });
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  let migrationReport: unknown = {};
+  try {
+    migrationReport = JSON.parse(data.migrationReportJson || '{}');
+  } catch {
+    migrationReport = {};
+  }
+
   return NextResponse.json({
     objects: JSON.parse(data.objectsJson),
     rules: JSON.parse(data.rulesJson),
@@ -21,5 +28,6 @@ export async function GET(
     interfaces: JSON.parse(data.interfacesJson),
     zones: JSON.parse(data.zonesJson),
     warnings: JSON.parse(data.warningsJson),
+    migrationReport,
   });
 }

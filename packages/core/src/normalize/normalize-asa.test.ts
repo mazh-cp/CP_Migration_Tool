@@ -1,6 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { parseASA } from '@cisco2cp/parsers';
-import { normalizeAsa, validate, ANY_NET_ID, ANY_SVC_ID, validateReferentialIntegrity } from '../index';
+import {
+  parseASA,
+  parseFortinetConfig,
+  parseFortiManagerExport,
+  scanFortinetConfigInventory,
+} from '@cisco2cp/parsers';
+import {
+  normalizeAsa,
+  validate,
+  ANY_NET_ID,
+  ANY_SVC_ID,
+  validateReferentialIntegrity,
+  buildMigrationReport,
+} from '../index';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -72,6 +84,64 @@ describe('ASA normalization - referential integrity', () => {
     const result = validateReferentialIntegrity(normalized);
     expect(result.ok).toBe(true);
     expect(result.missing).toHaveLength(0);
+  });
+
+  it('normalizes FortiManager JSON bundle with ruleId for hit merge', () => {
+    const bundle = {
+      policy: [
+        {
+          policyid: 42,
+          name: 'mgr-rule',
+          status: 'enable',
+          srcaddr: [{ name: 'all' }],
+          dstaddr: [{ name: 'all' }],
+          service: [{ name: 'ALL' }],
+          action: 1,
+        },
+      ],
+    };
+    const { statements } = parseFortiManagerExport(bundle);
+    const normalized = normalizeAsa(statements);
+    expect(normalized.rules[0]?.ruleId).toBe('42');
+    expect(normalized.rules[0]?.name).toBe('mgr-rule');
+  });
+
+  it('normalizes FortiGate config via explicit-policy-rule statements', () => {
+    const confPath = path.join(process.cwd(), '../parsers/testdata/sample-fortinet.conf');
+    const conf = fs.readFileSync(confPath, 'utf-8');
+    const { statements } = parseFortinetConfig(conf);
+    const normalized = normalizeAsa(statements);
+    expect(normalized.rules.length).toBe(3);
+    expect(normalized.nat.length).toBeGreaterThanOrEqual(2);
+    expect(normalized.interfaces.length).toBeGreaterThanOrEqual(2);
+    const allowRule = normalized.rules.find((r) => r.name === 'allow-internal-to-web');
+    expect(allowRule?.action).toBe('allow');
+    expect(allowRule?.sourceInterfaceNames).toEqual(['port1']);
+    expect(allowRule?.destinationInterfaceNames).toEqual(['port2']);
+    const disabled = normalized.rules.find((r) => r.name === 'utm-then-disabled');
+    expect(disabled?.enabled).toBe(false);
+    expect(disabled?.utmProfileRefs?.['av-profile']).toBe('default');
+    expect(disabled?.scheduleName).toBe('always');
+    const vipNat = normalized.nat.find((n) => n.originalDst === '203.0.113.5');
+    expect(vipNat?.type).toBe('static');
+    expect(vipNat?.translatedDst).toBe('10.0.1.10');
+    const result = validateReferentialIntegrity(normalized);
+    expect(result.ok).toBe(true);
+    const vr = validate(normalized);
+    const inv = scanFortinetConfigInventory(conf);
+    const report = buildMigrationReport(normalized, vr, {
+      sourceType: 'fortinet',
+      parseStatements: statements,
+      fortinetSourceInventory: inv,
+    });
+    expect(report.version).toBe(2);
+    expect(report.summary.rules).toBe(3);
+    expect(report.summary.disabledRules).toBe(1);
+    expect(report.fortinet.rulesWithUtmProfiles).toBeGreaterThanOrEqual(1);
+    expect(report.assurance.parsedManifestHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(report.assurance.functionalTestPlan.length).toBeGreaterThanOrEqual(
+      normalized.rules.length + normalized.nat.length
+    );
   });
 
   it('normalizes FTD-style access-list advanced ACEs', () => {

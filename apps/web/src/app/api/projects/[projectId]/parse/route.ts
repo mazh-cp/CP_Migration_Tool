@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { requireProjectAccess } from '@/lib/project-access';
 import { executeParseJob } from '@/lib/parse-job';
+import { pickLatestConfigArtifact } from '@/lib/project-artifacts';
 
 /**
  * Parse runs in the background after we return 202 so load balancers / reverse proxies
@@ -19,13 +20,19 @@ export async function POST(
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, tenantId },
-    include: { artifacts: true },
+    include: { artifacts: { orderBy: { uploadedAt: 'desc' } } },
   });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const artifact = project.artifacts[0];
-  if (!artifact?.content) {
-    return NextResponse.json({ error: 'No artifact content to parse' }, { status: 400 });
+  const configArtifact = pickLatestConfigArtifact(project.artifacts);
+  if (!configArtifact?.content) {
+    return NextResponse.json(
+      {
+        error:
+          'No firewall configuration to parse. Import ASA, FTD, FortiGate, or FortiManager first.',
+      },
+      { status: 400 }
+    );
   }
 
   const existing = await prisma.job.findFirst({

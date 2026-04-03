@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import { requireProjectAccess } from '@/lib/project-access';
 
 const importSchema = z.object({
-  sourceType: z.enum(['asa', 'ftd']),
+  sourceType: z.enum(['asa', 'ftd', 'fortinet', 'fortimanager', 'fortianalyzer']),
   filename: z.string().optional(),
   content: z.string(),
 });
@@ -24,9 +24,15 @@ export async function POST(
     const body = await req.json();
     const { sourceType, filename, content } = importSchema.parse(body);
 
+    const ext =
+      sourceType === 'ftd' || sourceType === 'fortimanager' || sourceType === 'fortianalyzer'
+        ? 'json'
+        : sourceType === 'fortinet'
+          ? 'conf'
+          : 'txt';
     const { path: filePath, size, sha256 } = await saveArtifact(
       projectId,
-      filename || `import.${sourceType === 'asa' ? 'txt' : 'json'}`,
+      filename || `import.${ext}`,
       content
     );
 
@@ -52,6 +58,10 @@ export async function POST(
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.errors }, { status: 400 });
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('File too large')) {
+      return NextResponse.json({ error: msg }, { status: 413 });
     }
     logger.error({ err, projectId }, 'Import failed');
     return NextResponse.json({ error: 'Import failed' }, { status: 500 });

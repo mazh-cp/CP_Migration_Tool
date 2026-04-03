@@ -1,4 +1,4 @@
-export type SourceType = 'asa' | 'ftd' | 'both';
+export type SourceType = 'asa' | 'ftd' | 'both' | 'fortinet' | 'fortimanager';
 
 export interface Project {
   id: string;
@@ -42,6 +42,6 @@ export interface RawConfigArtifact {
   size: number;
   sha256: string;
   uploadedAt: Date;
-  sourceType: 'asa' | 'ftd';
+  sourceType: 'asa' | 'ftd' | 'fortinet' | 'fortimanager' | 'fortianalyzer';
   content?: string; // Only loaded when needed; never logged
 }

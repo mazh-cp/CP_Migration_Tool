@@ -25,6 +25,16 @@ export function validateNormalizedObjectRename(name: string): string | null {
   return null;
 }
 
+/** Check Point object / access-rule export name (Gaia SMS naming). */
+export function validateCheckPointExportName(name: string): string | null {
+  const t = name.trim();
+  if (!t) return 'Name is required';
+  if (!NAME_REGEX.test(t)) {
+    return 'Check Point name: 1–63 characters, letters, numbers, underscore, hyphen only';
+  }
+  return null;
+}
+
 export type ObjectType = 'host' | 'network' | 'range' | 'fqdn';
 
 export interface FormatError {

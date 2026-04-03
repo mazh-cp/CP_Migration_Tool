@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-04-03
+
+### Added
+
+- **Fortinet FortiGate import:** Paste or upload FortiOS CLI-style configuration backups (`.conf` / `.txt`). Parser extracts firewall addresses, address groups, custom services, service groups, IPv4 policies, and system interfaces; policies map into the same normalized object/rule model used for Check Point export. Common predefined services (e.g. HTTP, HTTPS, DNS) are synthesized when referenced by policy.
+- **FortiManager:** Import JSON bundles (paste/upload) with `sourceType` `fortimanager`, or **live pull** from FortiManager JSON-RPC (`POST .../import/fortimanager-live`) using session key or username/password. Object database + policy package are fetched server-side; credentials are not stored.
+- **FortiAnalyzer:** Optional `fortianalyzer` artifact (JSON `hits` array or CSV with `policyId`/`policyName` + `hits`). On **Parse**, hit counts merge into normalized rules when a firewall config artifact exists. Latest config artifact is chosen by upload time (not only the first row).
+- **Parsers:** `parseFortiManagerExport` for CMDB-style FortiManager JSON; FortiGate / FortiManager inventory-style scanners; `ExplicitPolicyRule.ruleId` for FortiOS policyid matching.
+- **Migration assurance:** Pre-parse inventory, extended migration report, optional functional test plan in export when present; `migrationReportJson` on normalized data.
+- **Map (pre-export):** Edit Check Point names, normalized source names, and service ports/ranges on Map Objects; rule / NAT comment edits on Map Policy; `validateCheckPointExportName` and related API wiring.
+- **AST / normalize:** New `explicit-policy-rule` statement type for multi-field vendor policies (used by the FortiGate parser); ASA/FTD behavior unchanged.
+- **Parse job:** Parser warnings from ASA and FortiGate runs are merged into normalized warnings; FTD JSON + text fallback warning merging improved.
+- **Web:** Shared `AppShell` layout; `/projects/new` lives under `app/projects/new` so dev chunk URLs avoid route-group parentheses (reduces `ChunkLoadError` timeouts). Client chunk-load recovery and longer dev `chunkLoadTimeout` as additional mitigations.
+
+### Changed
+
+- **`GET /api/auth/diagnostic`:** In production, returns **404** unless `AUTH_DIAGNOSTIC_ENABLED=true` (development unchanged).
+
+### Fixed
+
+- **Import API:** Oversized uploads that hit `MAX_UPLOAD_MB` return **413** with a clear message instead of a generic **500**.
+
+### Security
+
+- **FortiManager live import:** Server-side `fetch` targets are validated to block loopback, link-local, and private IP literals (SSRF mitigation). Set `FMG_ALLOW_PRIVATE_URLS=true` for lab installs.
+
 ## [1.3.1] - 2026-03-24
 
 ### Fixed

@@ -6,7 +6,7 @@ import { requireTenantSession } from '@/lib/project-access';
 
 const createSchema = z.object({
   name: z.string().min(1).max(200),
-  sourceType: z.enum(['asa', 'ftd', 'both']),
+  sourceType: z.enum(['asa', 'ftd', 'both', 'fortinet', 'fortimanager']),
 });
 
 type ProjectListItem = Awaited<ReturnType<typeof prisma.project.findMany<{

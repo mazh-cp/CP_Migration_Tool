@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { validateCheckPointObject } from '@/lib/checkpoint-format';
 import { requireProjectAccess } from '@/lib/project-access';
-import { mapObjects, mapPolicy, validate } from '@cisco2cp/core';
+import { mapObjects, mapPolicy, validate, buildMigrationReport } from '@cisco2cp/core';
 import type { NormalizedObject, NormalizedPolicyRule } from '@cisco2cp/core';
 
 const fixSchema = z.object({
@@ -218,6 +218,27 @@ export async function POST(
     }
   }
 
+  // Re-validate and return
+  const result = validate({
+    objects,
+    rules,
+    nat: JSON.parse(data.natJson),
+    interfaces: JSON.parse(data.interfacesJson),
+    zones: JSON.parse(data.zonesJson),
+    warnings: JSON.parse(data.warningsJson),
+  });
+  const migrationReport = buildMigrationReport(
+    {
+      objects,
+      rules,
+      nat: JSON.parse(data.natJson),
+      interfaces: JSON.parse(data.interfacesJson),
+      zones: JSON.parse(data.zonesJson),
+      warnings: JSON.parse(data.warningsJson),
+    },
+    result
+  );
+
   // Persist normalized data
   await prisma.normalizedData.upsert({
     where: { projectId },
@@ -230,21 +251,13 @@ export async function POST(
       interfacesJson: data.interfacesJson,
       zonesJson: data.zonesJson,
       warningsJson: data.warningsJson,
+      migrationReportJson: JSON.stringify(migrationReport),
     },
     update: {
       objectsJson: JSON.stringify(objects),
       rulesJson: JSON.stringify(rules),
+      migrationReportJson: JSON.stringify(migrationReport),
     },
-  });
-
-  // Re-validate and return
-  const result = validate({
-    objects,
-    rules,
-    nat: JSON.parse(data.natJson),
-    interfaces: JSON.parse(data.interfacesJson),
-    zones: JSON.parse(data.zonesJson),
-    warnings: JSON.parse(data.warningsJson),
   });
 
   return NextResponse.json(result);

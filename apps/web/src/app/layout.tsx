@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ChunkLoadRecovery } from '@/components/chunk-load-recovery';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen bg-slate-950 text-slate-100 antialiased">
+        <ChunkLoadRecovery />
         {children}
       </body>
     </html>

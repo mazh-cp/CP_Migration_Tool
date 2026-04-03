@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 
 /**
- * Auth diagnostic — helps troubleshoot login issues on remote installs.
- * Returns non-sensitive info: whether auth env is set, password length.
- * No auth required.
+ * Auth diagnostic — helps troubleshoot login issues on local/dev installs.
+ * In production, disabled unless AUTH_DIAGNOSTIC_ENABLED=true (still unauthenticated; prefer restricting network access).
  */
 export async function GET() {
+  const prod = process.env.NODE_ENV === 'production';
+  const enabled = process.env.AUTH_DIAGNOSTIC_ENABLED === 'true' || process.env.AUTH_DIAGNOSTIC_ENABLED === '1';
+  if (prod && !enabled) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   const authUser = process.env.AUTH_USERNAME?.trim();
   const authPass = process.env.AUTH_PASSWORD;
   return NextResponse.json({

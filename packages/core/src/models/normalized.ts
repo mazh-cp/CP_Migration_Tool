@@ -50,6 +50,19 @@ export interface NormalizedPolicyRule {
   action: 'allow' | 'deny' | 'reject';
   log: 'none' | 'log' | 'alert';
   scheduleRef?: string;
+  /** FortiOS schedule name (manual layer / zone mapping). */
+  scheduleName?: string;
+  /** FortiGate srcintf names (topology — not Check Point refs until mapped). */
+  sourceInterfaceNames?: string[];
+  destinationInterfaceNames?: string[];
+  /** Forti UTM / profile refs for manual Check Point mapping. */
+  utmProfileRefs?: Record<string, string>;
+  /** Policy SNAT: Forti `set nat enable` (+ optional poolname). */
+  policyNatEnabled?: boolean;
+  policyNatPoolName?: string;
+  identityGroupNames?: string[];
+  identityUserNames?: string[];
+  possibleInternetServiceNames?: string[];
   timeCreated?: string;
   owner?: string;
   comments?: string;

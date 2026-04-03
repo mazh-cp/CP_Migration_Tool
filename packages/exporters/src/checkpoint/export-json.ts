@@ -6,6 +6,8 @@ export interface ExportJsonInput {
   projectId: string;
   normalized: NormalizedResult;
   mappingDecisions: MappingDecision[];
+  /** Structured migration summary from parse job (optional). */
+  migrationReport?: unknown;
 }
 
 export interface CheckPointJsonBundle {
@@ -15,11 +17,11 @@ export interface CheckPointJsonBundle {
   rules: unknown[];
   nat: unknown[];
   zones: unknown[];
-  meta: { projectId: string; exportedAt: string };
+  meta: { projectId: string; exportedAt: string; migrationReport?: unknown };
 }
 
 export function exportToJson(input: ExportJsonInput): CheckPointJsonBundle {
-  const { projectId, normalized, mappingDecisions } = input;
+  const { projectId, normalized, mappingDecisions, migrationReport } = input;
 
   const objDecisions = mappingDecisions.filter((d) => d.entityType === 'object' || d.entityType === 'service');
   const ruleDecisions = mappingDecisions.filter((d) => d.entityType === 'rule');
@@ -77,6 +79,12 @@ export function exportToJson(input: ExportJsonInput): CheckPointJsonBundle {
     rules,
     nat,
     zones,
-    meta: { projectId, exportedAt: new Date().toISOString() },
+    meta: {
+      projectId,
+      exportedAt: new Date().toISOString(),
+      ...(migrationReport != null && Object.keys(migrationReport as object).length > 0
+        ? { migrationReport }
+        : {}),
+    },
   };
 }

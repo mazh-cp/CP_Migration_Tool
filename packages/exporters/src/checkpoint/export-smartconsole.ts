@@ -96,10 +96,31 @@ function buildGroupsCsv(bundle: CheckPointJsonBundle): string {
 
 function buildPolicyCsv(bundle: CheckPointJsonBundle): string {
   const rows: string[][] = [
-    ['Rule#', 'Name', 'Source', 'Destination', 'Services', 'Action', 'Track', 'Comment', 'IngressInterface', 'Section'],
+    [
+      'Rule#',
+      'Name',
+      'Source',
+      'Destination',
+      'Services',
+      'Action',
+      'Track',
+      'Enabled',
+      'Comment',
+      'IngressInterface',
+      'Section',
+    ],
   ];
   let idx = 1;
-  for (const r of bundle.rules as Array<{ name?: string; source?: string[]; destination?: string[]; service?: string[]; action?: string }>) {
+  for (const r of bundle.rules as Array<{
+    name?: string;
+    source?: string[];
+    destination?: string[];
+    service?: string[];
+    action?: string;
+    track?: string;
+    enabled?: boolean;
+    comments?: string;
+  }>) {
     const src = (r.source || []).join(';');
     const dst = (r.destination || []).join(';');
     const svc = (r.service || []).join(';');
@@ -110,8 +131,9 @@ function buildPolicyCsv(bundle: CheckPointJsonBundle): string {
       dst || 'Any',
       svc || 'Any',
       r.action ?? 'Accept',
-      'Log',
-      '',
+      r.track === 'none' ? 'None' : r.track === 'alert' ? 'Alert' : 'Log',
+      r.enabled === false ? 'false' : 'true',
+      r.comments ?? '',
       '',
       '',
     ]);

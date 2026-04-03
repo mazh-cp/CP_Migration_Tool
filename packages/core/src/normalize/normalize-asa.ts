@@ -16,6 +16,9 @@ import type {
   NatStatement,
   InterfaceStatement,
   NameIfStatement,
+  ExplicitPolicyRule,
+  FortinetVipStatement,
+  FortinetIppoolStatement,
 } from '@cisco2cp/parsers';
 import { createId } from '../utils/id';
 import {
@@ -54,6 +57,7 @@ export function normalizeAsa(statements: ASAAstNode[]): NormalizedResult {
   const interfaces: NormalizedInterface[] = [];
   const zones: NormalizedZone[] = [];
   const warnings: string[] = [];
+  let natOrder = 0;
 
   for (const st of statements) {
     if (st.type === 'object-network') {
@@ -69,13 +73,31 @@ export function normalizeAsa(statements: ASAAstNode[]): NormalizedResult {
       if (rule) rules.push(rule);
     } else if (st.type === 'nat') {
       const n = normalizeNat(st as NatStatement);
-      if (n) nat.push(n);
+      if (n) {
+        n.order = natOrder++;
+        nat.push(n);
+      }
+    } else if (st.type === 'fortinet-vip') {
+      const n = normalizeFortinetVip(st as FortinetVipStatement, warnings);
+      if (n) {
+        n.order = natOrder++;
+        nat.push(n);
+      }
+    } else if (st.type === 'fortinet-ippool') {
+      const n = normalizeFortinetIppool(st as FortinetIppoolStatement);
+      if (n) {
+        n.order = natOrder++;
+        nat.push(n);
+      }
     } else if (st.type === 'interface') {
       const iface = normalizeInterface(st as InterfaceStatement);
       if (iface) interfaces.push(iface);
     } else if (st.type === 'nameif') {
       const zone = normalizeNameIf(st as NameIfStatement);
       if (zone) zones.push(zone);
+    } else if (st.type === 'explicit-policy-rule') {
+      const rule = normalizeExplicitPolicyRule(st as ExplicitPolicyRule, warnings);
+      if (rule) rules.push(rule);
     }
   }
 
@@ -282,6 +304,114 @@ function resolveServiceFromAccessList(st: AccessListExtended): string[] {
   return [ANY_SVC_ID];
 }
 
+function normalizeExplicitPolicyRule(
+  st: ExplicitPolicyRule,
+  warnings: string[]
+): NormalizedPolicyRule | null {
+  const srcRefs = resolveExplicitNetList(st.sourceNames, warnings, 'source');
+  const dstRefs = resolveExplicitNetList(st.destinationNames, warnings, 'destination');
+  const serviceRefs = resolveExplicitServiceList(st.serviceNames, warnings);
+
+  const commentParts: string[] = [];
+  if (st.utmProfileRefs && Object.keys(st.utmProfileRefs).length > 0) {
+    commentParts.push(
+      `Forti UTM: ${Object.entries(st.utmProfileRefs)
+        .map(([k, v]) => `${k}=${v}`)
+        .join('; ')}`
+    );
+  }
+  if (!st.enabled) {
+    commentParts.push('Imported disabled (FortiOS status)');
+  }
+  if (st.policyNatEnabled) {
+    commentParts.push(
+      st.policyNatPoolName
+        ? `Forti policy NAT; pool: ${st.policyNatPoolName}`
+        : 'Forti policy NAT enabled'
+    );
+  }
+  if (st.identityGroupNames?.length || st.identityUserNames?.length) {
+    commentParts.push(
+      `Forti identity: groups=${(st.identityGroupNames ?? []).join(',') || '—'}; users=${(st.identityUserNames ?? []).join(',') || '—'}`
+    );
+  }
+  if (st.possibleInternetServiceNames?.length) {
+    commentParts.push(`Possible ISDB refs: ${st.possibleInternetServiceNames.join(', ')}`);
+  }
+
+  return {
+    id: createId(),
+    name: st.name,
+    ruleId: st.ruleId,
+    enabled: st.enabled,
+    sourceRefs: srcRefs,
+    destinationRefs: dstRefs,
+    serviceRefs,
+    action: st.action === 'permit' ? 'allow' : st.action === 'reject' ? 'reject' : 'deny',
+    log: st.log,
+    scheduleName: st.scheduleName,
+    sourceInterfaceNames:
+      st.sourceInterfaceNames && st.sourceInterfaceNames.length > 0
+        ? st.sourceInterfaceNames
+        : undefined,
+    destinationInterfaceNames:
+      st.destinationInterfaceNames && st.destinationInterfaceNames.length > 0
+        ? st.destinationInterfaceNames
+        : undefined,
+    utmProfileRefs:
+      st.utmProfileRefs && Object.keys(st.utmProfileRefs).length > 0 ? st.utmProfileRefs : undefined,
+    policyNatEnabled: st.policyNatEnabled,
+    policyNatPoolName: st.policyNatPoolName,
+    identityGroupNames:
+      st.identityGroupNames && st.identityGroupNames.length > 0 ? st.identityGroupNames : undefined,
+    identityUserNames:
+      st.identityUserNames && st.identityUserNames.length > 0 ? st.identityUserNames : undefined,
+    possibleInternetServiceNames:
+      st.possibleInternetServiceNames && st.possibleInternetServiceNames.length > 0
+        ? st.possibleInternetServiceNames
+        : undefined,
+    comments: commentParts.length > 0 ? commentParts.join(' | ') : undefined,
+    sourceLines: st.lineNumber ? [st.lineNumber] : undefined,
+  };
+}
+
+function resolveExplicitNetList(
+  names: string[],
+  warnings: string[],
+  role: string
+): string[] {
+  const trimmed = names.map((n) => n.trim()).filter(Boolean);
+  if (trimmed.length === 0) {
+    warnings.push(`Policy ${role}: empty address list; using Any`);
+    return [ANY_NET_ID];
+  }
+  if (trimmed.some((n) => n.toLowerCase() === 'all')) {
+    return [ANY_NET_ID];
+  }
+  return trimmed.map((n) => resolveNetworkRef(n));
+}
+
+function resolveExplicitServiceList(names: string[], warnings: string[]): string[] {
+  const trimmed = names.map((n) => n.trim()).filter(Boolean);
+  if (trimmed.length === 0) {
+    warnings.push('Policy: empty service list; using Any');
+    return [ANY_SVC_ID];
+  }
+  if (trimmed.some((n) => n.toLowerCase() === 'all')) {
+    return [ANY_SVC_ID];
+  }
+  const ids: string[] = [];
+  for (const n of trimmed) {
+    const id = resolveServiceRef(n);
+    if (id) ids.push(id);
+    else {
+      warnings.push(`Policy: unknown service "${n}"; using Any`);
+      ids.push(ANY_SVC_ID);
+    }
+  }
+  return ids;
+}
+
 function normalizeAccessList(st: AccessListExtended): NormalizedPolicyRule | null {
   const id = createId();
   const srcKey = st.src?.trim() || '';
@@ -319,6 +449,52 @@ function normalizeNat(st: NatStatement): NormalizedNATRule | null {
     translatedSrc: st.translatedSrc,
     translatedDst: st.translatedDst,
     interfaceRef: st.insideInterface,
+    order: 0,
+    sourceLines: st.lineNumber ? [st.lineNumber] : undefined,
+  };
+}
+
+function normalizeFortinetVip(st: FortinetVipStatement, warnings: string[]): NormalizedNATRule | null {
+  const extip = st.extip?.trim();
+  const mappedip = st.mappedip?.trim();
+  if (!extip && !mappedip) {
+    warnings.push(`Forti VIP "${st.name}": missing extip/mappedip; skipped`);
+    return null;
+  }
+  const extp = st.extport?.trim();
+  const mapp = st.mappedport?.trim();
+  let originalSvc: string | undefined;
+  let translatedSvc: string | undefined;
+  if (extp) {
+    const n = parseInt(extp, 10);
+    originalSvc = !isNaN(n) ? `tcp/${n}` : extp;
+  }
+  if (mapp) {
+    const n = parseInt(mapp, 10);
+    translatedSvc = !isNaN(n) ? `tcp/${n}` : mapp;
+  }
+  return {
+    id: createId(),
+    type: 'static',
+    originalDst: extip || undefined,
+    translatedDst: mappedip || undefined,
+    originalSvc,
+    translatedSvc,
+    interfaceRef: st.extintf?.trim() || undefined,
+    order: 0,
+    sourceLines: st.lineNumber ? [st.lineNumber] : undefined,
+  };
+}
+
+function normalizeFortinetIppool(st: FortinetIppoolStatement): NormalizedNATRule | null {
+  const start = st.startip?.trim();
+  const end = st.endip?.trim();
+  if (!start || !end) return null;
+  const poolLabel = start === end ? start : `${start}-${end}`;
+  return {
+    id: createId(),
+    type: 'hide',
+    translatedSrc: poolLabel,
     order: 0,
     sourceLines: st.lineNumber ? [st.lineNumber] : undefined,
   };

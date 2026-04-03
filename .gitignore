@@ -12,6 +12,7 @@ coverage
 .DS_Store
 *.tgz
 .cache
+*.tsbuildinfo
 build
 uploads
 *.sqlite

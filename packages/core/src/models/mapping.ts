@@ -60,6 +60,8 @@ export interface CheckPointRule {
   service: string[];
   action: 'accept' | 'drop' | 'reject';
   track: 'none' | 'log' | 'alert';
+  /** When false, rule should be created disabled in SmartConsole. */
+  enabled?: boolean;
   comments?: string;
 }
 

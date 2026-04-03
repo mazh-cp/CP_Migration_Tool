@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 export default function NewProjectPage() {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [sourceType, setSourceType] = useState<'asa' | 'ftd' | 'both'>('asa');
+  const [sourceType, setSourceType] = useState<'asa' | 'ftd' | 'both' | 'fortinet' | 'fortimanager'>(
+    'asa'
+  );
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -47,12 +49,16 @@ export default function NewProjectPage() {
           <label className="block text-sm font-medium text-slate-300 mb-2">Source Type</label>
           <select
             value={sourceType}
-            onChange={(e) => setSourceType(e.target.value as 'asa' | 'ftd' | 'both')}
+            onChange={(e) =>
+              setSourceType(e.target.value as 'asa' | 'ftd' | 'both' | 'fortinet' | 'fortimanager')
+            }
             className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500"
           >
             <option value="asa">Cisco ASA</option>
             <option value="ftd">Cisco FTD</option>
             <option value="both">Both (ASA + FTD)</option>
+            <option value="fortinet">Fortinet FortiGate</option>
+            <option value="fortimanager">Fortinet FortiManager (policy package)</option>
           </select>
         </div>
         <button

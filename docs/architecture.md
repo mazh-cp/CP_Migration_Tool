@@ -2,12 +2,12 @@
 
 ## Overview
 
-Cisco ASA/FTD to Check Point converter: a modular, explainable conversion pipeline.
+Cisco ASA/FTD and Fortinet FortiGate to Check Point converter: a modular, explainable conversion pipeline.
 
 ```
 ┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌─────────────┐    ┌──────────────┐
 │  Import     │───▶│  Parse       │───▶│  Normalize  │───▶│  Map        │───▶│  Export      │
-│  (ASA/FTD)  │    │  (AST)       │    │  (vendor-   │    │  (CP model) │    │  (JSON/CLI)  │
+│ (ASA/FTD/Fr)│    │  (AST)       │    │  (vendor-   │    │  (CP model) │    │  (JSON/CLI)  │
 │             │    │              │    │   neutral)  │    │             │    │              │
 └─────────────┘    └──────────────┘    └─────────────┘    └─────────────┘    └──────────────┘
                          │                     │                  │
@@ -32,6 +32,9 @@ Cisco ASA/FTD to Check Point converter: a modular, explainable conversion pipeli
 ### `/packages/parsers`
 - ASA: tokenizer, parser, AST
 - FTD: JSON parser, text parser (ASA-compatible)
+- Fortinet: FortiOS CLI backup parser (addresses, groups, services, policies, interfaces) → AST + warnings
+- FortiManager: CMDB JSON (`parseFortiManagerExport`) + optional live JSON-RPC pull from the web app (not stored in repo)
+- FortiAnalyzer: optional hit-count JSON/CSV merged into normalized rules at parse time when a firewall artifact exists
 - Output: AST + parser warnings
 
 ### `/packages/exporters`

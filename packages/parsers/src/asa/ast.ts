@@ -83,6 +83,54 @@ export interface NameIfStatement extends ASAStatement {
   zoneName: string;
 }
 
+/** Multi-field policy (e.g. FortiGate) mapped into the same normalized rule model. */
+export interface ExplicitPolicyRule extends ASAStatement {
+  type: 'explicit-policy-rule';
+  name?: string;
+  /** FortiOS policyid / FMG id for analytics merge (e.g. FortiAnalyzer hits). */
+  ruleId?: string;
+  enabled: boolean;
+  sourceNames: string[];
+  destinationNames: string[];
+  serviceNames: string[];
+  action: 'permit' | 'deny' | 'reject';
+  log: 'none' | 'log' | 'alert';
+  /** FortiGate srcintf / dstintf names (topology — map in UI). */
+  sourceInterfaceNames?: string[];
+  destinationInterfaceNames?: string[];
+  /** FortiOS firewall policy schedule name. */
+  scheduleName?: string;
+  /** UTM / security profile refs (Forti → Check Point manual mapping). */
+  utmProfileRefs?: Record<string, string>;
+  /** Policy-level SNAT when set nat enable + poolname (pool name string if present). */
+  policyNatPoolName?: string;
+  policyNatEnabled?: boolean;
+  /** FortiOS `set groups` / `set users` (Identity Awareness mapping required). */
+  identityGroupNames?: string[];
+  identityUserNames?: string[];
+  /** Dotted names resembling Forti ISDB / internet-service (manual mapping). */
+  possibleInternetServiceNames?: string[];
+}
+
+/** FortiGate VIP (DNAT) — normalized to static destination NAT. */
+export interface FortinetVipStatement extends ASAStatement {
+  type: 'fortinet-vip';
+  name: string;
+  extip?: string;
+  mappedip?: string;
+  extintf?: string;
+  extport?: string;
+  mappedport?: string;
+}
+
+/** FortiGate IP pool (SNAT range). */
+export interface FortinetIppoolStatement extends ASAStatement {
+  type: 'fortinet-ippool';
+  name: string;
+  startip?: string;
+  endip?: string;
+}
+
 export type ASAAstNode =
   | ObjectNetwork
   | ObjectGroupNetwork
@@ -92,6 +140,9 @@ export type ASAAstNode =
   | NatStatement
   | InterfaceStatement
   | NameIfStatement
+  | ExplicitPolicyRule
+  | FortinetVipStatement
+  | FortinetIppoolStatement
   | ASAStatement;
 
 export interface ASAParseResult {

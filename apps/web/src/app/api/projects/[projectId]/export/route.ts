@@ -57,7 +57,22 @@ export async function POST(
     userOverride: r.userOverrideJson ? JSON.parse(r.userOverrideJson) : undefined,
   }));
 
-  const bundle = exportToJson({ projectId, normalized, mappingDecisions });
+  let migrationReport: unknown;
+  try {
+    migrationReport = JSON.parse(data.migrationReportJson || '{}');
+  } catch {
+    migrationReport = undefined;
+  }
+
+  const bundle = exportToJson({
+    projectId,
+    normalized,
+    mappingDecisions,
+    migrationReport:
+      migrationReport && typeof migrationReport === 'object' && Object.keys(migrationReport).length > 0
+        ? migrationReport
+        : undefined,
+  });
   const includeSms = target === 'sms' || target === 'both';
   const includeGateway = target === 'gateway' || target === 'both';
   const includeMgmtApi = includeSms && (smsFormat === 'mgmt-api' || smsFormat === 'both');
@@ -75,6 +90,17 @@ export async function POST(
       zip.file('sms/mgmt_api/bundle.json', JSON.stringify(bundle, null, 2));
       const cli = exportToCliTemplate(bundle);
       zip.file('sms/mgmt_api/run_import.cli', cli);
+      if (bundle.meta.migrationReport != null) {
+        zip.file('sms/mgmt_api/migration-report.json', JSON.stringify(bundle.meta.migrationReport, null, 2));
+        const assurance = (bundle.meta.migrationReport as { assurance?: { functionalTestPlan?: unknown } })
+          .assurance;
+        if (assurance?.functionalTestPlan != null) {
+          zip.file(
+            'sms/mgmt_api/functional-test-plan.json',
+            JSON.stringify(assurance.functionalTestPlan, null, 2)
+          );
+        }
+      }
     }
     if (includeSmartConsole) {
       const csv = exportToSmartConsoleCsv(bundle);

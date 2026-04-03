@@ -1,11 +1,20 @@
 import { randomUUID } from 'crypto';
 import type { MappingDecision } from '@cisco2cp/core';
-import { parseASA } from '@cisco2cp/parsers';
-import { parseFtdJson, parseFtdText } from '@cisco2cp/parsers';
-import { normalizeAsa, normalizeFtd, validate } from '@cisco2cp/core';
+import {
+  parseASA,
+  parseFortinetConfig,
+  parseFortiManagerExport,
+  parseFtdJson,
+  parseFtdText,
+  scanFortinetConfigInventory,
+  scanFortiManagerJsonInventory,
+} from '@cisco2cp/parsers';
+import { normalizeAsa, normalizeFtd, validate, buildMigrationReport } from '@cisco2cp/core';
 import { mapObjects, mapPolicy, mapNat } from '@cisco2cp/core';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { pickLatestConfigArtifact, pickLatestFortiAnalyzerArtifact } from '@/lib/project-artifacts';
+import { mergeFortiAnalyzerHits } from '@/lib/fortianalyzer-merge';
 
 /** SQLite variable limit — keep batches small enough for createMany. */
 const MAPPING_BATCH = 80;
@@ -17,7 +26,7 @@ const MAPPING_BATCH = 80;
 export async function executeParseJob(jobId: string, projectId: string, tenantId: string): Promise<void> {
   const project = await prisma.project.findFirst({
     where: { id: projectId, tenantId },
-    include: { artifacts: true },
+    include: { artifacts: { orderBy: { uploadedAt: 'desc' } } },
   });
   if (!project) {
     await prisma.job.update({
@@ -27,11 +36,17 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
     return;
   }
 
-  const artifact = project.artifacts[0];
-  if (!artifact?.content) {
+  const configArtifact = pickLatestConfigArtifact(project.artifacts);
+  const fazArtifact = pickLatestFortiAnalyzerArtifact(project.artifacts);
+  if (!configArtifact?.content) {
     await prisma.job.update({
       where: { id: jobId },
-      data: { status: 'failed', errorMessage: 'No artifact content to parse', finishedAt: new Date() },
+      data: {
+        status: 'failed',
+        errorMessage:
+          'No firewall configuration to parse. Import ASA, FTD, FortiGate CLI, or FortiManager JSON first. FortiAnalyzer files only add hit counts when a firewall import exists.',
+        finishedAt: new Date(),
+      },
     });
     return;
   }
@@ -39,18 +54,34 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
   try {
     const t0 = Date.now();
     let statements: { type: string; [k: string]: unknown }[];
+    let parseWarnings: string[] = [];
 
-    if (artifact.sourceType === 'asa') {
-      const result = parseASA(artifact.content);
+    if (configArtifact.sourceType === 'asa') {
+      const result = parseASA(configArtifact.content);
       statements = result.statements as { type: string; [k: string]: unknown }[];
+      parseWarnings = result.warnings;
+    } else if (configArtifact.sourceType === 'fortinet') {
+      const result = parseFortinetConfig(configArtifact.content);
+      statements = result.statements as { type: string; [k: string]: unknown }[];
+      parseWarnings = result.warnings;
+    } else if (configArtifact.sourceType === 'fortimanager') {
+      const result = parseFortiManagerExport(configArtifact.content);
+      statements = result.statements as { type: string; [k: string]: unknown }[];
+      parseWarnings = result.warnings;
     } else {
       try {
-        const jsonResult = parseFtdJson(artifact.content);
-        statements = (jsonResult.statements.length > 0
-          ? jsonResult.statements
-          : parseFtdText(artifact.content).statements) as { type: string; [k: string]: unknown }[];
+        const jsonResult = parseFtdJson(configArtifact.content);
+        if (jsonResult.statements.length > 0) {
+          parseWarnings = jsonResult.warnings;
+          statements = jsonResult.statements as { type: string; [k: string]: unknown }[];
+        } else {
+          const textResult = parseFtdText(configArtifact.content);
+          parseWarnings = [...jsonResult.warnings, ...textResult.warnings];
+          statements = textResult.statements as { type: string; [k: string]: unknown }[];
+        }
       } catch {
-        const textResult = parseFtdText(artifact.content);
+        const textResult = parseFtdText(configArtifact.content);
+        parseWarnings = textResult.warnings;
         statements = textResult.statements as { type: string; [k: string]: unknown }[];
       }
     }
@@ -60,8 +91,20 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
     );
 
     const t1 = Date.now();
-    const normalize = artifact.sourceType === 'asa' ? normalizeAsa : normalizeFtd;
+    const normalize = configArtifact.sourceType === 'ftd' ? normalizeFtd : normalizeAsa;
     const normalized = normalize(statements as never);
+    if (parseWarnings.length > 0) {
+      normalized.warnings = [...parseWarnings, ...normalized.warnings];
+    }
+    if (fazArtifact?.content) {
+      const merged = mergeFortiAnalyzerHits(
+        normalized.rules,
+        fazArtifact.content,
+        fazArtifact.filename
+      );
+      normalized.rules = merged.rules;
+      normalized.warnings = [...merged.warnings, ...normalized.warnings];
+    }
     logger.info(
       {
         projectId,
@@ -88,6 +131,26 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
 
     const validation = validate(normalized);
 
+    const fortinetSourceInventory =
+      configArtifact.sourceType === 'fortinet'
+        ? scanFortinetConfigInventory(configArtifact.content)
+        : undefined;
+    const fmgSourceInventory =
+      configArtifact.sourceType === 'fortimanager'
+        ? scanFortiManagerJsonInventory(configArtifact.content)
+        : undefined;
+
+    const migrationReport = buildMigrationReport(normalized, validation, {
+      sourceType: configArtifact.sourceType as
+        | 'fortinet'
+        | 'fortimanager'
+        | 'asa'
+        | 'ftd',
+      parseStatements: statements as never,
+      fortinetSourceInventory,
+      fmgSourceInventory: fmgSourceInventory ?? undefined,
+    });
+
     const t3 = Date.now();
     await prisma.normalizedData.upsert({
       where: { projectId },
@@ -100,6 +163,7 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
         interfacesJson: JSON.stringify(normalized.interfaces),
         zonesJson: JSON.stringify(normalized.zones),
         warningsJson: JSON.stringify(normalized.warnings),
+        migrationReportJson: JSON.stringify(migrationReport),
       },
       update: {
         objectsJson: JSON.stringify(normalized.objects),
@@ -108,6 +172,7 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
         interfacesJson: JSON.stringify(normalized.interfaces),
         zonesJson: JSON.stringify(normalized.zones),
         warningsJson: JSON.stringify(normalized.warnings),
+        migrationReportJson: JSON.stringify(migrationReport),
       },
     });
     logger.info({ projectId, jobId, phase: 'persist_normalized', ms: Date.now() - t3 }, 'Parse: normalized row written');

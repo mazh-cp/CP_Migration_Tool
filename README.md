@@ -1,10 +1,10 @@
 # Migrator
 
-**Cisco ASA/FTD → Check Point Firewall Migration Tool**
+**Cisco ASA / FTD / Fortinet → Check Point Firewall Migration Tool**
 
-Convert Cisco ASA and FTD configurations to Check Point equivalents. Modular, explainable, safe-by-default.
+Convert Cisco ASA, FTD, or Fortinet FortiGate configurations to Check Point equivalents. Modular, explainable, safe-by-default.
 
-**Version:** 1.0.2  
+**Version:** 1.4.0  
 **Repository:** https://github.com/mazh-cp/CP_Migration_Tool
 
 ---
@@ -13,7 +13,7 @@ Convert Cisco ASA and FTD configurations to Check Point equivalents. Modular, ex
 
 Migrator helps you:
 
-- **Import** Cisco ASA or FTD configurations (paste or file upload)
+- **Import** Cisco ASA, FTD, or Fortinet FortiGate configurations (paste or file upload)
 - **Parse** and normalize to a vendor-neutral model
 - **Map** objects, services, rules, interfaces, and NAT to Check Point
 - **Validate** and fix missing references
@@ -26,7 +26,7 @@ Migrator helps you:
 ```
 ┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌─────────────┐    ┌──────────────┐
 │  Import     │───▶│  Parse       │───▶│  Normalize  │───▶│  Map        │───▶│  Export      │
-│  (ASA/FTD)  │    │  (AST)       │    │  (vendor-   │    │  (CP model) │    │  (JSON/CLI)  │
+│ (ASA/FTD/Fr)│    │  (AST)       │    │  (vendor-   │    │  (CP model) │    │  (JSON/CLI)  │
 │             │    │              │    │   neutral)  │    │             │    │              │
 └─────────────┘    └──────────────┘    └─────────────┘    └─────────────┘    └──────────────┘
 ```
