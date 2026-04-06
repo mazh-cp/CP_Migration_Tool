@@ -161,7 +161,7 @@ model Project {
   id             String   @id @default(uuid())
   tenantId       String?  // required after backfill; optional for migration
   name           String
-  sourceType     String   // asa | ftd | both | fortinet | fortimanager
+  sourceType     String   // asa | ftd | both | fortinet | fortimanager | paloalto
   status         String   @default("draft")
   currentStep    String   @default("import")
   completedSteps String   @default("[]")
@@ -198,7 +198,7 @@ model RawArtifact {
   size       Int
   sha256     String
   content    String?
-  sourceType String   // asa | ftd | fortinet | fortimanager | fortianalyzer
+  sourceType String   // asa | ftd | fortinet | fortimanager | fortianalyzer | paloalto
   uploadedAt DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)

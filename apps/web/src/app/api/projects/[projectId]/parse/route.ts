@@ -29,7 +29,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          'No firewall configuration to parse. Import ASA, FTD, FortiGate, or FortiManager first.',
+          'No firewall configuration to parse. Import ASA, FTD, FortiGate, FortiManager, or Palo Alto XML first.',
       },
       { status: 400 }
     );

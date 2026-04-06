@@ -1,14 +1,16 @@
 # User Guide
 
-**Cisco ASA / FTD / Fortinet → Check Point Migration**
+**Cisco ASA / FTD / Fortinet / Palo Alto → Check Point Migration**
 
 This guide walks you through converting firewall configurations to Check Point format using Migrator.
+
+**How this guide is organized:** Vendor-specific **import** instructions first (**FortiGate**, **FortiManager**, **Palo Alto**), then a shared **ASA / FTD** walkthrough (steps 1–8) for Parse onward for **all** sources. **Supported formats** and **troubleshooting** follow. Admin topics: [ADMIN_GUIDE.md](../ADMIN_GUIDE.md) and [User Admin Guide](user-admin-guide.md).
 
 ---
 
 ## Overview
 
-The workflow has 8 steps (same for ASA, FTD, **FortiGate**, and **FortiManager** after you pick the right source type):
+The workflow has 8 steps (same for ASA, FTD, **FortiGate**, **FortiManager**, and **Palo Alto (PAN-OS XML)** after you pick the right source type):
 
 1. Create Project  
 2. Import Config  
@@ -121,13 +123,42 @@ Use this when the source of truth is a **FortiManager ADOM policy package** (not
 
 ---
 
+## Palo Alto Networks (PAN-OS XML) → Check Point — step by step
+
+Use this path when the source is **Palo Alto Networks** and you have **PAN-OS configuration in XML**.
+
+### 1. Export the PAN-OS configuration as XML
+
+- Obtain **XML** via your operational process (e.g. running configuration XML, **`show configuration running`**, or Panorama/device exports that include addresses, services, and security rules).  
+- Use **`.xml`** or paste the full document; one coherent scope per project.
+
+### 2. Create project
+
+- **Dashboard** → **Create New Project**, or **Projects** → **New Project**
+- **Source type: Palo Alto Networks (PAN-OS XML export)**
+- **Create & Import** → **Import** page
+
+### 3. Import
+
+- **Source type: Palo Alto Networks (PAN-OS XML)**.
+- **Paste** or **upload** **`.xml`** → **Import & Continue** → **Parse**.
+
+**Optional:** **FortiAnalyzer** hits when a firewall-class config is already imported (see FortiGate section).
+
+### 4. Parse through Export
+
+- **Run Parse**; review **Warnings** (including App-ID–related messages).
+- **Map Interfaces** → **Map Objects** → **Map Policy** → **Validate** → **Export** — same as FortiGate above.
+
+---
+
 ## Step-by-Step Usage (ASA / FTD)
 
 ### 1. Create Project
 
 - Go to **Dashboard** → **Create New Project**, or **Projects** → **New Project**
 - Enter a **project name** (e.g. "Branch-FW-Migration")
-- Select **source type**: **ASA**, **FTD**, **Fortinet FortiGate**, or **Fortinet FortiManager** (FortiGate / FortiManager detail above)
+- Select **source type**: **ASA**, **FTD**, **Fortinet FortiGate**, **Fortinet FortiManager**, or **Palo Alto Networks (PAN-OS XML)** (detail in vendor sections above)
 - Click **Create & Import**
 - You are redirected to the Import page
 
@@ -139,7 +170,8 @@ Use this when the source of truth is a **FortiManager ADOM policy package** (not
   - ASA: `.txt`, `.cfg`  
   - FTD: `.json` or ASA-compatible text  
   - **FortiGate:** `.conf` / `.txt` full backup (see FortiGate section above)  
-  - **FortiManager:** `.json` policy bundle, **or** use **live API pull** (see FortiManager section above)
+  - **FortiManager:** `.json` policy bundle, **or** use **live API pull** (see FortiManager section above)  
+  - **Palo Alto:** `.xml` (see Palo Alto section above)
 - Ensure the **source type** on the Import page matches the project
 - Click **Import & Continue**
 - The config is stored and you proceed to the Parse page
@@ -167,7 +199,7 @@ Use this when the source of truth is a **FortiManager ADOM policy package** (not
 
 ### 4. Map Interfaces
 
-- For each **source** interface (ASA, FTD, or FortiGate), select the corresponding Check Point interface (MGMT, eth0, eth1, etc.)
+- For each **source** interface or zone context (ASA, FTD, FortiGate, FortiManager, Palo Alto), select the corresponding Check Point interface (MGMT, eth0, eth1, etc.)
 - Optionally set **IP override** and **Mask override** for Check Point
 - Click **Save mappings** → **Next: Map Objects**
 
@@ -232,6 +264,7 @@ If no interfaces exist, you can skip to Map Objects.
 | FTD | JSON or ASA-compatible text |
 | **FortiGate (FortiOS)** | Full configuration **.conf** / **.txt** (CLI backup or `show full-configuration` style) |
 | FortiManager | Policy package **JSON** (paste/upload or live import, depending on setup) |
+| **Palo Alto (PAN-OS)** | Configuration **XML** (paste or `.xml` upload) |
 | FortiAnalyzer (optional) | JSON or CSV hit data (use with a firewall config for merged hits on parse) |
 
 | Export | Output |
@@ -246,7 +279,7 @@ If no interfaces exist, you can skip to Map Objects.
 
 | Issue | Action |
 |-------|--------|
-| Parse fails | Check source format; ensure ASA/FTD/FortiOS syntax; FortiGate needs full config text |
+| Parse fails | Check source format; ASA/FTD/FortiOS syntax; FortiGate needs full config text; Palo Alto needs valid PAN-OS **XML** |
 | Missing object references | Fix in Validate step before export |
 | Export blocked | Resolve all validation errors |
 | Large file rejected | Check `MAX_UPLOAD_MB` in environment |

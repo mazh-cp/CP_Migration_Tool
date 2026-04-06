@@ -1,0 +1,155 @@
+<?xml version="1.0"?>
+<config version="10.1.0">
+  <devices>
+    <entry name="localhost.localdomain">
+      <network>
+        <virtual-router>
+          <entry name="default">
+            <routing>
+              <routing-table>
+                <static-route>
+                  <entry name="default-route">
+                    <destination>0.0.0.0/0</destination>
+                    <nexthop>
+                      <ip-address>203.0.113.1</ip-address>
+                    </nexthop>
+                  </entry>
+                </static-route>
+              </routing-table>
+            </routing>
+          </entry>
+        </virtual-router>
+      </network>
+      <vsys>
+        <entry name="vsys1">
+          <address>
+            <entry name="web-server">
+              <ip-netmask>192.168.1.10/32</ip-netmask>
+            </entry>
+            <entry name="corp-network">
+              <ip-netmask>10.0.0.0/8</ip-netmask>
+            </entry>
+            <entry name="cdn-endpoint">
+              <fqdn>cdn.example.com</fqdn>
+            </entry>
+          </address>
+          <address-group>
+            <entry name="dmz-servers">
+              <static>
+                <member>web-server</member>
+                <member>corp-network</member>
+              </static>
+            </entry>
+          </address-group>
+          <service>
+            <entry name="svc-https-alt">
+              <protocol>
+                <tcp>
+                  <port>8443</port>
+                </tcp>
+              </protocol>
+            </entry>
+            <entry name="svc-sip">
+              <protocol>
+                <udp>
+                  <port>5060</port>
+                </udp>
+              </protocol>
+            </entry>
+          </service>
+          <service-group>
+            <entry name="web-services">
+              <members>
+                <member>svc-https-alt</member>
+                <member>service-https</member>
+              </members>
+            </entry>
+          </service-group>
+          <rulebase>
+            <security>
+              <rules>
+                <entry name="allow-web">
+                  <from>
+                    <member>trust</member>
+                  </from>
+                  <to>
+                    <member>untrust</member>
+                  </to>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>dmz-servers</member>
+                  </destination>
+                  <application>
+                    <member>any</member>
+                  </application>
+                  <service>
+                    <member>svc-https-alt</member>
+                  </service>
+                  <action>allow</action>
+                  <log-end>yes</log-end>
+                </entry>
+                <entry name="block-all">
+                  <from>
+                    <member>any</member>
+                  </from>
+                  <to>
+                    <member>any</member>
+                  </to>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>any</member>
+                  </destination>
+                  <application>
+                    <member>any</member>
+                  </application>
+                  <service>
+                    <member>any</member>
+                  </service>
+                  <action>deny</action>
+                  <disabled>yes</disabled>
+                </entry>
+              </rules>
+            </security>
+            <nat>
+              <rules>
+                <entry name="web-nat">
+                  <from>
+                    <member>trust</member>
+                  </from>
+                  <to>
+                    <member>untrust</member>
+                  </to>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>any</member>
+                  </destination>
+                  <service>any</service>
+                  <source-translation>
+                    <dynamic-ip-and-port>
+                      <interface-address>
+                        <interface>ethernet1/1</interface>
+                      </interface-address>
+                    </dynamic-ip-and-port>
+                  </source-translation>
+                </entry>
+              </rules>
+            </nat>
+          </rulebase>
+        </entry>
+      </vsys>
+    </entry>
+  </devices>
+  <shared>
+    <address>
+      <entry name="shared-dns">
+        <ip-netmask>8.8.8.8/32</ip-netmask>
+      </entry>
+    </address>
+  </shared>
+</config>

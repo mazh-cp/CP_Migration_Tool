@@ -6,6 +6,7 @@ import {
   parseFortiManagerExport,
   parseFtdJson,
   parseFtdText,
+  parsePaloAltoXml,
   scanFortinetConfigInventory,
   scanFortiManagerJsonInventory,
 } from '@cisco2cp/parsers';
@@ -44,7 +45,7 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
       data: {
         status: 'failed',
         errorMessage:
-          'No firewall configuration to parse. Import ASA, FTD, FortiGate CLI, or FortiManager JSON first. FortiAnalyzer files only add hit counts when a firewall import exists.',
+          'No firewall configuration to parse. Import ASA, FTD, FortiGate CLI, FortiManager JSON, or Palo Alto XML first. FortiAnalyzer files only add hit counts when a firewall import exists.',
         finishedAt: new Date(),
       },
     });
@@ -66,6 +67,10 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
       parseWarnings = result.warnings;
     } else if (configArtifact.sourceType === 'fortimanager') {
       const result = parseFortiManagerExport(configArtifact.content);
+      statements = result.statements as { type: string; [k: string]: unknown }[];
+      parseWarnings = result.warnings;
+    } else if (configArtifact.sourceType === 'paloalto') {
+      const result = parsePaloAltoXml(configArtifact.content);
       statements = result.statements as { type: string; [k: string]: unknown }[];
       parseWarnings = result.warnings;
     } else {
@@ -91,7 +96,8 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
     );
 
     const t1 = Date.now();
-    const normalize = configArtifact.sourceType === 'ftd' ? normalizeFtd : normalizeAsa;
+    const normalize =
+      configArtifact.sourceType === 'ftd' ? normalizeFtd : normalizeAsa;
     const normalized = normalize(statements as never);
     if (parseWarnings.length > 0) {
       normalized.warnings = [...parseWarnings, ...normalized.warnings];
@@ -145,7 +151,8 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
         | 'fortinet'
         | 'fortimanager'
         | 'asa'
-        | 'ftd',
+        | 'ftd'
+        | 'paloalto',
       parseStatements: statements as never,
       fortinetSourceInventory,
       fmgSourceInventory: fmgSourceInventory ?? undefined,

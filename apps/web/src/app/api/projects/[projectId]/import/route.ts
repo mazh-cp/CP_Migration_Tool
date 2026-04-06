@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import { requireProjectAccess } from '@/lib/project-access';
 
 const importSchema = z.object({
-  sourceType: z.enum(['asa', 'ftd', 'fortinet', 'fortimanager', 'fortianalyzer']),
+  sourceType: z.enum(['asa', 'ftd', 'fortinet', 'fortimanager', 'fortianalyzer', 'paloalto']),
   filename: z.string().optional(),
   content: z.string(),
 });
@@ -29,7 +29,9 @@ export async function POST(
         ? 'json'
         : sourceType === 'fortinet'
           ? 'conf'
-          : 'txt';
+          : sourceType === 'paloalto'
+            ? 'xml'
+            : 'txt';
     const { path: filePath, size, sha256 } = await saveArtifact(
       projectId,
       filename || `import.${ext}`,

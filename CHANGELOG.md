@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-04-06
+
+### Added
+
+- **Palo Alto PAN-OS** in the web migrator: `paloalto` source type end-to-end (import → parse → normalize → map → export) alongside ASA/FTD/Fortinet.
+- **`@cisco2cp/parsers`:** `parsePaloAltoXml`, `preparePaloAltoInput` (plain XML, API-wrapped XML, base64 ZIP, raw ZIP-as-string, set-format CLI); Vitest coverage and sample fixtures.
+- **`@cisco2cp/exporters`:** `buildR8xMigrationFromStatements` and `getR8xMigrationSummary` for Check Point **R8x-style** migration JSON from the shared AST.
+- **Optional Express API** (`server.js`, `app.js`): Palo Alto → R8x JSON over HTTP (default port **3001**), including upload, live firewall fetch, and Panorama device list / device config fetch.
+
+### Changed
+
+- Express Panorama **device fetch** uses **full device config XML** from the API (replaces the previous JavaScript-only merged shared pre/post rule layers).
+
+### Removed
+
+- Duplicate Palo Alto **JavaScript** parsers, transformers, and `xmlParser.js` in `src/`; Jest-based integration tests for that stack. Single parse/export path uses **`@cisco2cp/parsers`** + **`@cisco2cp/exporters`**.
+
+### Documentation
+
+- Admin/user guides, `docs/limitations.md`, and process docs updated for Palo Alto workflows and formats.
+
+### Deploy
+
+- Pinned examples and default **`DOC_RELEASE_TAG`** / upgrade script defaults updated to **v1.5.0**.
+
 ## [1.4.1] - 2026-04-04
 
 ### Added

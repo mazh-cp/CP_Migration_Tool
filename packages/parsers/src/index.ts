@@ -14,3 +14,7 @@ export { scanFortiManagerJsonInventory } from './fortinet/fortimanager-inventory
 export type { FortiManagerSourceInventory } from './fortinet/fortimanager-inventory';
 export { parseFortiManagerExport } from './fortinet/fortimanager-parser';
 export type { FortiManagerBundleInput } from './fortinet/fortimanager-parser';
+export { parsePanosXmlString, extractConfigRoot, ensureArray } from './paloalto/xml';
+export { preparePaloAltoInput, extractXmlFromZipBytes } from './paloalto/input-normalize';
+export type { PreparedPaloAltoInput } from './paloalto/input-normalize';
+export { parsePaloAltoXml, parsePaloAltoXmlDocument } from './paloalto/parse-paloalto-xml';

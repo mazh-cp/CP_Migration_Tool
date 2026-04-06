@@ -1,13 +1,15 @@
 # User Admin Guide
 
-**Cisco ASA / FTD / Fortinet → Check Point Migrator**  
-**Version:** 1.4.1
+**Cisco ASA / FTD / Fortinet / Palo Alto → Check Point Migrator**  
+**Version:** 1.5.0
 
 ---
 
 ## 1. Overview
 
-This guide covers administrative access, authentication, configuration, and security for the Migrator application (ASA, FTD, FortiGate/FortiManager paths → Check Point).
+This guide covers administrative access, authentication, configuration, and security for the Migrator application (ASA, FTD, FortiGate, FortiManager, and Palo Alto PAN-OS XML paths → Check Point).
+
+**Operator checklists:** FortiGate **§6**, FortiManager **§7**, Palo Alto **§8**. End-user import/Parse detail: [User Guide](user-guide.md). Diagrams and API phases: [Process flow](process-flow.md).
 
 ---
 
@@ -61,6 +63,8 @@ Within a project, use the stepper to move between:
 **FortiGate path:** **Source type: Fortinet FortiGate** → import `.conf`/`.txt` → same stepper to Export. Checklist: **§6**.
 
 **FortiManager path:** **Source type: Fortinet FortiManager (policy package)** → paste/upload JSON **or** **live API pull** on Import → same stepper. Checklist: **§7**.
+
+**Palo Alto path:** **Source type: Palo Alto Networks (PAN-OS XML export)** → paste or upload `.xml` → same stepper. Checklist: **§8**.
 
 ---
 
@@ -150,14 +154,32 @@ Administrators can use this checklist when onboarding operators.
 
 ---
 
-## 8. Logout
+## 8. Palo Alto Networks (PAN-OS XML) → Check Point (step-by-step)
+
+| Step | UI / action | Notes |
+|------|-------------|--------|
+| 1 | Obtain **PAN-OS XML** | Running config XML, `show configuration running`, or equivalent export; not live API from Migrator UI. |
+| 2 | **Projects** → **New Project** | **Source type: Palo Alto Networks (PAN-OS XML export)** → **Create & Import**. |
+| 3 | **Import** | **Palo Alto Networks (PAN-OS XML)**; paste or upload **`.xml`** → **Import & Continue**. `MAX_UPLOAD_MB` applies. |
+| 4 | **Parse** → **Run Parse** | Async job; review warnings (e.g. App-ID hints) → **Map Interfaces**. |
+| 5 | **Map Interfaces** | Map source interfaces/zones context to Check Point → **Map Objects**. |
+| 6 | **Map Objects** | Review/edit object and service names → **Map Policy**. |
+| 7 | **Map Policy** | Rules/NAT; validate PAN-specific semantics → **Validate**. |
+| 8 | **Validate** | Clear errors → **Export**. |
+| 9 | **Export** | SMS / Gateway / Both; Mgmt API and/or SmartConsole → **Download**. |
+
+**Optional:** **FortiAnalyzer** import when a primary firewall XML (or other firewall artifact) is already present.
+
+---
+
+## 9. Logout
 
 - Sidebar → **Log out**.
 - Session cookie is cleared and you are redirected to **/login**.
 
 ---
 
-## 9. Security Considerations
+## 10. Security Considerations
 
 1. **Credentials:** Use strong `AUTH_USERNAME` and `AUTH_PASSWORD`; never use defaults in production.
 2. **SESSION_SECRET:** Must be set and at least 32 characters in production.
@@ -166,7 +188,7 @@ Administrators can use this checklist when onboarding operators.
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 | Issue | Possible cause | Action |
 |-------|----------------|--------|

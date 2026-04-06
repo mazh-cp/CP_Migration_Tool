@@ -9,7 +9,10 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {},
+  "dependencies": {
+    "fast-xml-parser": "^5.5.10",
+    "fflate": "^0.8.2"
+  },
   "devDependencies": {
     "tsup": "^8.1.0",
     "typescript": "^5.5.4",

@@ -5,11 +5,12 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatApiFailureMessage, readApiJson } from '@/lib/read-api-json';
 
-type SourceType = 'asa' | 'ftd' | 'fortinet' | 'fortimanager' | 'fortianalyzer';
+type SourceType = 'asa' | 'ftd' | 'fortinet' | 'fortimanager' | 'fortianalyzer' | 'paloalto';
 
 function defaultFilename(st: SourceType): string {
   if (st === 'ftd' || st === 'fortimanager' || st === 'fortianalyzer') return 'config.json';
   if (st === 'fortinet') return 'config.conf';
+  if (st === 'paloalto') return 'running-config.xml';
   return 'config.txt';
 }
 
@@ -132,7 +133,9 @@ export default function ImportPage() {
       ? 'Paste FortiManager bundle JSON (policy + address + service objects from API export or live pull).'
       : sourceType === 'fortianalyzer'
         ? 'Paste JSON: {"hits":[{"policyName":"allow-web","hits":1234},{"policyId":"1","hits":500}]} — import after firewall config; merge runs on Parse.'
-        : 'Paste your ASA, FTD, or FortiGate configuration here...';
+        : sourceType === 'paloalto'
+          ? 'Paste PAN-OS export: full XML (GUI/API/Panorama), base64-encoded ZIP bundle, raw ZIP as pasted binary string, or set-format CLI (show config running). Prefer XML export when possible.'
+          : 'Paste your ASA, FTD, or FortiGate configuration here...';
 
   return (
     <div>
@@ -172,6 +175,7 @@ export default function ImportPage() {
           <option value="fortinet">Fortinet FortiGate (CLI backup)</option>
           <option value="fortimanager">FortiManager (JSON bundle)</option>
           <option value="fortianalyzer">FortiAnalyzer hits (JSON or CSV — after firewall import)</option>
+          <option value="paloalto">Palo Alto Networks (PAN-OS XML)</option>
         </select>
       </div>
       {mode === 'paste' && (
@@ -201,7 +205,7 @@ export default function ImportPage() {
         <div>
           <input
             type="file"
-            accept=".txt,.cfg,.json,.conf,.csv"
+            accept=".txt,.cfg,.json,.conf,.csv,.xml"
             onChange={handleFile}
             className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-cyan-600 file:text-white"
           />

@@ -1,6 +1,6 @@
 import type { RawArtifact } from '@prisma/client';
 
-const CONFIG_SOURCE_TYPES = new Set(['asa', 'ftd', 'fortinet', 'fortimanager']);
+const CONFIG_SOURCE_TYPES = new Set(['asa', 'ftd', 'fortinet', 'fortimanager', 'paloalto']);
 
 /**
  * Latest firewall/config artifact (excludes FortiAnalyzer-only uploads).

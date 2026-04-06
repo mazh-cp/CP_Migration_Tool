@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<config>
+  <devices>
+    <entry name="localhost.localdomain">
+      <vsys>
+        <entry name="vsys1">
+          <address>
+            <entry name="pa-host-a">
+              <ip-netmask>10.0.0.10/32</ip-netmask>
+            </entry>
+            <entry name="pa-net-b">
+              <ip-netmask>10.1.0.0/24</ip-netmask>
+            </entry>
+            <entry name="pa-range-c">
+              <ip-range>
+                <from>10.2.0.1</from>
+                <to>10.2.0.50</to>
+              </ip-range>
+            </entry>
+            <entry name="pa-fqdn-d">
+              <fqdn>example.com</fqdn>
+            </entry>
+          </address>
+          <address-group>
+            <entry name="pa-g-net">
+              <static>
+                <member>pa-host-a</member>
+                <member>pa-net-b</member>
+              </static>
+            </entry>
+          </address-group>
+          <service>
+            <entry name="pa-tcp-443">
+              <protocol>
+                <tcp>
+                  <port>443</port>
+                </tcp>
+              </protocol>
+            </entry>
+          </service>
+          <service-group>
+            <entry name="pa-svc-grp">
+              <members>
+                <member>pa-tcp-443</member>
+              </members>
+            </entry>
+          </service-group>
+          <rulebase>
+            <security>
+              <rules>
+                <entry name="allow-https">
+                  <action>allow</action>
+                  <from>
+                    <member>trust</member>
+                  </from>
+                  <to>
+                    <member>untrust</member>
+                  </to>
+                  <source>
+                    <member>pa-g-net</member>
+                  </source>
+                  <destination>
+                    <member>any</member>
+                  </destination>
+                  <application>
+                    <member>ssl</member>
+                  </application>
+                  <service>
+                    <member>pa-svc-grp</member>
+                  </service>
+                </entry>
+                <entry name="deny-all">
+                  <action>deny</action>
+                  <disabled>yes</disabled>
+                  <from>
+                    <member>any</member>
+                  </from>
+                  <to>
+                    <member>any</member>
+                  </to>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>any</member>
+                  </destination>
+                  <application>
+                    <member>any</member>
+                  </application>
+                  <service>
+                    <member>application-default</member>
+                  </service>
+                </entry>
+              </rules>
+            </security>
+          </rulebase>
+        </entry>
+      </vsys>
+    </entry>
+  </devices>
+</config>

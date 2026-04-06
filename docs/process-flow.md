@@ -1,7 +1,7 @@
 # Process Flow Document
 
-**Cisco ASA / FTD / Fortinet → Check Point Migrator**  
-**Version:** 1.4.1
+**Cisco ASA / FTD / Fortinet / Palo Alto → Check Point Migrator**  
+**Version:** 1.5.0
 
 ---
 
@@ -33,9 +33,9 @@
        │                      │                   │                   └─────────▶│   Export     │
        │                      │                   │                              └──────────────┘
        │                      │                   │
-       │                      │                   └── Paste or upload ASA / FTD / FortiGate / FortiManager / FortiAnalyzer
+       │                      │                   └── Paste or upload ASA / FTD / FortiGate / FortiManager / Palo Alto XML / FortiAnalyzer
        │                      │
-       │                      └── Name + source type (ASA | FTD | Fortinet FortiGate | Fortinet FortiManager)
+       │                      └── Name + source type (ASA | FTD | Fortinet FortiGate | Fortinet FortiManager | Palo Alto XML)
        │
        └── AUTH_USERNAME / AUTH_PASSWORD
 ```
@@ -61,7 +61,7 @@
 |------|--------|---------|
 | 1 | Dashboard → Create New Project | Navigate to /projects/new |
 | 2 | Enter project name | Required |
-| 3 | Select source type | **ASA**, **FTD**, **Fortinet FortiGate**, or **Fortinet FortiManager** (policy package) |
+| 3 | Select source type | **ASA**, **FTD**, **Fortinet FortiGate**, **Fortinet FortiManager** (policy package), or **Palo Alto Networks (PAN-OS XML)** |
 | 4 | Click Create & Import | POST /api/projects, redirect to Import |
 
 ---
@@ -85,7 +85,10 @@
 | FTD | JSON or ASA-compatible text |
 | **Fortinet FortiGate** | FortiOS full config **`.conf` / `.txt`** (CLI backup or `show full-configuration` style) |
 | FortiManager | Policy package **JSON** (paste/upload) or live JSON-RPC import |
+| **Palo Alto (PAN-OS)** | Configuration **XML** (paste or `.xml` upload); `sourceType: paloalto` |
 | FortiAnalyzer (optional) | JSON (`hits` array) or CSV with policy id/name + hits |
+
+**Palo Alto note:** Import is **file or paste only** (no live device API in the app). XML should include address, service, and security-rule sections for best coverage; parse may emit **warnings** for App-ID and other constructs—operators validate in Map Policy / Validate.
 
 **FortiGate note:** One primary firewall config artifact per parse path; optional **FortiAnalyzer** artifact can be imported in addition so parse merges hit statistics when both are present.
 
@@ -105,7 +108,7 @@ After either path, status becomes **imported** and the user continues to **Parse
 | Step | Action | Outcome |
 |------|--------|---------|
 | 1 | Click Run Parse | POST /api/projects/[id]/parse → **202** + `jobId`; UI polls GET `/api/projects/[id]/status?jobId=` until complete (avoids proxy **504** on long parses) |
-| 2 | Parser runs | AST from ASA, FTD JSON/text, **FortiOS CLI config**, or FortiManager bundle |
+| 2 | Parser runs | Statements from ASA, FTD JSON/text, **FortiOS CLI config**, FortiManager bundle, or **PAN-OS XML** |
 | 3 | Normalizer runs | Vendor-neutral objects, rules, NAT, interfaces |
 | 4 | Mapping engine proposes targets | MappingDecision records created |
 | 5 | Validator runs | Initial findings |
@@ -118,7 +121,7 @@ After either path, status becomes **imported** and the user continues to **Parse
 
 | Step | Action | Outcome |
 |------|--------|---------|
-| 1 | View source firewall interfaces | From normalized data (ASA, FTD, or FortiGate) |
+| 1 | View source firewall interfaces | From normalized data (ASA, FTD, FortiGate, FortiManager, Palo Alto) |
 | 2 | Map each to Check Point | MGMT, eth0, eth1, etc. or custom |
 | 3 | Optional: IP/mask override | For Check Point topology |
 | 4 | Click Save mappings | POST /api/projects/[id]/interface-mappings |
@@ -192,7 +195,7 @@ After either path, status becomes **imported** and the user continues to **Parse
 
 | Decision | Options | Impact |
 |----------|---------|--------|
-| Source type | ASA / FTD / Fortinet FortiGate / Fortinet FortiManager | Parser and normalizer choice |
+| Source type | ASA / FTD / Fortinet FortiGate / Fortinet FortiManager / Palo Alto XML | Parser choice; FortiGate/FortiManager/Palo Alto share ASA-oriented normalization after parse |
 | Missing object reference | Placeholder / Replace with Any / Custom | Validation and export |
 | Export target | SMS / Gateway / Both | Output format |
 | SMS format | Mgmt API / SmartConsole / Both | File structure in ZIP |
@@ -202,7 +205,7 @@ After either path, status becomes **imported** and the user continues to **Parse
 ## 5. Data Flow Summary
 
 ```
-Raw Config (ASA/FTD text or JSON; FortiOS .conf/.txt; FortiManager JSON; optional FortiAnalyzer)
+Raw Config (ASA/FTD text or JSON; FortiOS .conf/.txt; FortiManager JSON; PAN-OS XML; optional FortiAnalyzer)
     │
     ▼
 Parser (AST)

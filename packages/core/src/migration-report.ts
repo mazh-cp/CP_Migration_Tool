@@ -41,7 +41,7 @@ export interface MigrationReport {
 }
 
 export interface BuildMigrationReportOptions {
-  sourceType?: 'fortinet' | 'fortimanager' | 'asa' | 'ftd';
+  sourceType?: 'fortinet' | 'fortimanager' | 'asa' | 'ftd' | 'paloalto';
   parseStatements?: ASAAstNode[];
   fortinetSourceInventory?: FortinetSourceInventory;
   fmgSourceInventory?: FortiManagerSourceInventory | null;

@@ -2,6 +2,8 @@
 
 Administration, authentication, RBAC, and configuration.
 
+**End-to-end operator workflows (this document):** FortiGate (FortiOS) → Check Point; FortiManager (policy package) → Check Point; Palo Alto (PAN-OS XML) → Check Point. **ASA / FTD** use the same Import → Parse → Map → Validate → Export stepper in the UI; day-to-day steps are in [USER_GUIDE.md](USER_GUIDE.md). **FortiAnalyzer** optional enrichment is covered under FortiGate/FortiManager sections. **API/status flow** (async parse, polling): [docs/process-flow.md](docs/process-flow.md).
+
 ---
 
 ## Access and Authentication
@@ -127,6 +129,40 @@ Same **Parse → Map → Validate → Export** stepper as FortiGate; only **Impo
    Same as the FortiGate workflow above.
 
 **Optional:** Add **FortiAnalyzer** hit data on Import before parse to merge hit counts when a compatible firewall/manager artifact set exists.
+
+---
+
+## Palo Alto Networks (PAN-OS XML) → Check Point — operator workflow
+
+Use this path when the source is **PAN-OS configuration as XML** (firewall or Panorama-style export). After import, the same **Parse → Map → Validate → Export** stepper applies as for ASA/FTD/FortiGate/FortiManager.
+
+1. **Obtain the configuration**  
+   Export or copy **XML** that contains the object and policy sections Migrator reads, for example:  
+   - Firewall: **`show configuration running`** (XML) or a saved **running-config** XML backup from your operational process, **or**  
+   - **API / SCP / backup** workflows your organization uses, as long as the result is **PAN-OS XML** (not a PDF or HTML report).  
+   Prefer a single coherent config (one logical device or device-group scope) per project.
+
+2. **Create project**  
+   **Projects** → **New Project** → enter a name → **Source type: Palo Alto Networks (PAN-OS XML export)** → **Create & Import**.
+
+3. **Import**  
+   On **Import**, select **Palo Alto Networks (PAN-OS XML)**. **Paste** the XML or **upload** a **`.xml`** file → **Import & Continue**.  
+   Respect **`MAX_UPLOAD_MB`**; **413** if over limit.
+
+4. **Parse**  
+   **Run Parse** (async **202** + poll). The XML is parsed into normalized objects, rules, NAT (when present in the export), and zone/interface context. Review **warnings** (e.g. App-ID–related hints)—operators should validate security rule and application mappings in **Map Policy** and **Validate**.  
+   → **Map Interfaces**.
+
+5. **Map Interfaces → Map Objects → Map Policy → Validate → Export**  
+   Same as the FortiGate workflow above.
+
+**Operational notes:**
+
+- **Zones** from PAN-OS are carried into the normalized model (interface/zone context for rules); map them to Check Point topology as you would other vendors’ interfaces/zones.  
+- **FortiAnalyzer:** Optional **fortianalyzer** import still applies only when a **primary firewall-class** artifact exists; treat Palo Alto XML as that primary config when combining.  
+- **Limitations:** Advanced PAN-OS features (dynamic updates, some NAT styles, incomplete XML slices) may surface as **warnings** or partial coverage—see [docs/limitations.md](docs/limitations.md) and operator review.
+
+End-user detail: [USER_GUIDE.md](USER_GUIDE.md). API-oriented flow: [docs/process-flow.md](docs/process-flow.md).
 
 ---
 

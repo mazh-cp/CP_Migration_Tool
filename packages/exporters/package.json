@@ -9,7 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cisco2cp/core": "*"
+    "@cisco2cp/core": "*",
+    "@cisco2cp/parsers": "*"
   },
   "devDependencies": {
     "tsup": "^8.1.0",
