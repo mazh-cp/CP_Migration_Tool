@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="10.1.0">
+  <devices>
+    <entry name="localhost.localdomain">
+      <network>
+        <interface>
+          <ethernet>
+            <entry name="ethernet1/1.10">
+              <ip><entry name="10.10.0.1/24"/></ip>
+            </entry>
+            <entry name="ethernet1/2">
+              <ip><entry name="203.0.113.2/30"/></ip>
+            </entry>
+          </ethernet>
+        </interface>
+      </network>
+      <vsys>
+        <entry name="vsys1">
+          <zone>
+            <entry name="zone-mgmt">
+              <network><layer3><member>ethernet1/1.10</member></layer3></network>
+            </entry>
+            <entry name="zone-untrust">
+              <network><layer3><member>ethernet1/2</member></layer3></network>
+            </entry>
+          </zone>
+          <rulebase>
+            <security>
+              <rules>
+                <entry name="test-rule">
+                  <action>allow</action>
+                  <from><member>zone-mgmt</member></from>
+                  <to><member>zone-untrust</member></to>
+                  <source><member>any</member></source>
+                  <destination><member>any</member></destination>
+                  <application><member>any</member></application>
+                  <service><member>application-default</member></service>
+                </entry>
+              </rules>
+            </security>
+          </rulebase>
+        </entry>
+      </vsys>
+    </entry>
+  </devices>
+</config>

@@ -111,13 +111,15 @@ export default function MapInterfacesPage() {
         Interface Mapping
       </h2>
       <p className="text-slate-400 mb-6">
-        Map Cisco ASA interfaces to Check Point firewall interfaces. Assign MGMT, eth0, eth1, etc. to match your
-        target Check Point topology.
+        Map source topology to Check Point interfaces (MGMT, eth0, eth1, …). Cisco ASA/Firepower uses physical
+        interface names; Palo Alto lists security zones and L3 interfaces from the config; FortiGate uses system
+        interfaces. Align names with your target gateway layout.
       </p>
 
       {interfaces.length === 0 ? (
         <div className="p-8 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-400 text-center">
-          No interfaces found in source config. Import and parse an ASA config first.
+          No interfaces or zones found in normalized data. Import a config, run Parse again, then return here.
+          For Palo Alto, zones referenced in security rules (and zone/interface definitions) appear after parse.
         </div>
       ) : (
         <div className="space-y-6">

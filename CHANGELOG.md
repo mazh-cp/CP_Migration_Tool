@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-04-07
+
+### Fixed
+
+- **Palo Alto Map Interfaces:** Parser now emits `interface` AST nodes from **security-rule zones**, **vsys zone definitions**, and **device-level `network/interface`** (running-config places `network` under `devices/entry`, not under `vsys`).
+- **Palo Alto L3 interfaces:** Supports `network/interface/ethernet/entry` (and related types), plus IPv4 from **`layer3/ip`** or direct **`ip`** subinterfaces (`<ip><entry name="a.b.c.d/nn"/>`).
+
+### Changed
+
+- **Map Interfaces UI:** Vendor-neutral copy (ASA / Palo Alto zones & L3 / FortiGate) and clearer empty state.
+
+### Deploy
+
+- Pinned examples and default **`DOC_RELEASE_TAG`** updated to **v1.5.1**.
+
 ## [1.5.0] - 2026-04-06
 
 ### Added

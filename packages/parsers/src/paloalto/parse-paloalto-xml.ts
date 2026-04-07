@@ -1,5 +1,6 @@
 import type {
   ASAAstNode,
+  InterfaceStatement,
   ObjectGroupNetwork,
   ObjectGroupService,
   ObjectNetwork,
@@ -47,17 +48,25 @@ function addressEntryToObjectNetwork(name: string, body: Record<string, unknown>
   return null;
 }
 
-function collectVsysContexts(config: Record<string, unknown>): { vsysName: string; root: Record<string, unknown> }[] {
+type VsysContext = {
+  vsysName: string;
+  /** vsys-scoped config (zones, addresses, rulebase, …). */
+  root: Record<string, unknown>;
+  /** Parent device entry when present — running-config puts `network` here, not under vsys. */
+  device?: Record<string, unknown>;
+};
+
+function collectVsysContexts(config: Record<string, unknown>): VsysContext[] {
   const devices = config.devices as Record<string, unknown> | undefined;
   if (!devices) return [{ vsysName: 'vsys1', root: config }];
 
-  const out: { vsysName: string; root: Record<string, unknown> }[] = [];
+  const out: VsysContext[] = [];
   for (const dev of ensureArray(devices.entry as Record<string, unknown>[] | undefined)) {
     const vsysBlock = dev.vsys as Record<string, unknown> | undefined;
     if (!vsysBlock) continue;
     for (const vs of ensureArray(vsysBlock.entry as Record<string, unknown>[] | undefined)) {
       const vn = entryName(vs) || 'vsys1';
-      out.push({ vsysName: vn, root: vs });
+      out.push({ vsysName: vn, root: vs, device: dev });
     }
   }
   return out.length > 0 ? out : [{ vsysName: 'vsys1', root: config }];
@@ -107,6 +116,62 @@ function normalizeListForCore(names: string[]): string[] {
 function mapPolicyRef(vsys: string, m: string, multiVsys: boolean): string {
   if (m.toLowerCase() === 'any') return 'all';
   return multiVsys ? `${vsys}/${m}` : m;
+}
+
+/** Parse `<ip><entry name="a.b.c.d/nn"/>` style blocks (used under `layer3` and directly on ethernet subifs). */
+function firstCidrFromIpBlock(ipBlock: Record<string, unknown> | undefined): { ip?: string; mask?: string } {
+  if (!ipBlock?.entry) return {};
+  for (const e of ensureArray(ipBlock.entry as Record<string, unknown>[])) {
+    const cidr = entryName(e);
+    if (cidr && cidr.includes('/')) {
+      const [addr, pref] = cidr.split('/');
+      if (addr && pref !== undefined && /^[\d.]+$/.test(addr)) {
+        return { ip: addr, mask: pref };
+      }
+    }
+  }
+  return {};
+}
+
+/** First static IPv4 CIDR under `layer3` (some exports). */
+function firstIpFromLayer3(layer3: Record<string, unknown> | undefined): { ip?: string; mask?: string } {
+  if (!layer3 || typeof layer3 !== 'object') return {};
+  return firstCidrFromIpBlock(layer3.ip as Record<string, unknown> | undefined);
+}
+
+/** Ethernet / tunnel / loopback entry: IP may be under `layer3` or directly under `ip` (subinterface style). */
+function firstIpFromPanInterfaceEntry(ent: Record<string, unknown>): { ip?: string; mask?: string } {
+  const fromL3 = firstIpFromLayer3(ent.layer3 as Record<string, unknown> | undefined);
+  if (fromL3.ip) return fromL3;
+  return firstCidrFromIpBlock(ent.ip as Record<string, unknown> | undefined);
+}
+
+const PAN_INTERFACE_TYPE_KEYS = [
+  'ethernet',
+  'aggregate-ethernet',
+  'tunnel',
+  'loopback',
+  'vlan',
+] as const;
+
+/** Running-config uses `network/interface/ethernet/entry`, not always `network/interface/entry`. */
+function* iteratePanNetworkInterfaceEntries(net: Record<string, unknown> | undefined): Generator<Record<string, unknown>> {
+  if (!net || typeof net !== 'object') return;
+  const ifaceRoot = net.interface as Record<string, unknown> | undefined;
+  if (!ifaceRoot) return;
+  if (ifaceRoot.entry) {
+    for (const ent of ensureArray(ifaceRoot.entry as Record<string, unknown>[])) {
+      yield ent;
+    }
+  }
+  for (const key of PAN_INTERFACE_TYPE_KEYS) {
+    const block = ifaceRoot[key] as Record<string, unknown> | undefined;
+    if (block?.entry) {
+      for (const ent of ensureArray(block.entry as Record<string, unknown>[])) {
+        yield ent;
+      }
+    }
+  }
 }
 
 /**
@@ -163,7 +228,39 @@ export function parsePaloAltoXmlDocument(content: string, prepNotes: string[] = 
   const qualifyRef = (vsys: string, ref: string) =>
     contexts.length > 1 ? `${vsys}/${ref}` : ref;
 
-  for (const { vsysName, root } of contexts) {
+  for (const { vsysName, root, device } of contexts) {
+    const multi = contexts.length > 1;
+    const emittedIface = new Set<string>();
+
+    const addPanInterface = (shortName: string, ip?: string, mask?: string) => {
+      if (!shortName || shortName.toLowerCase() === 'any') return;
+      const qn = multi ? `${vsysName}/${shortName}` : shortName;
+      if (emittedIface.has(qn)) return;
+      emittedIface.add(qn);
+      const st: InterfaceStatement = { type: 'interface', name: qn };
+      if (ip) st.ipAddress = ip;
+      if (mask) st.mask = mask;
+      statements.push(st);
+    };
+
+    const zoneBlock = root.zone as Record<string, unknown> | undefined;
+    if (zoneBlock?.entry) {
+      for (const ent of ensureArray(zoneBlock.entry as Record<string, unknown>[])) {
+        const nm = entryName(ent);
+        if (nm) addPanInterface(nm);
+      }
+    }
+
+    const net =
+      (root.network as Record<string, unknown> | undefined) ??
+      (device?.network as Record<string, unknown> | undefined);
+    for (const ent of iteratePanNetworkInterfaceEntries(net)) {
+      const nm = entryName(ent);
+      if (!nm) continue;
+      const { ip, mask } = firstIpFromPanInterfaceEntry(ent);
+      addPanInterface(nm, ip, mask);
+    }
+
     const addressBlock = root.address as Record<string, unknown> | undefined;
     if (addressBlock?.entry) {
       for (const ent of ensureArray(addressBlock.entry as Record<string, unknown>[])) {
@@ -242,7 +339,6 @@ export function parsePaloAltoXmlDocument(content: string, prepNotes: string[] = 
         const disabled = (ent.disabled as string | undefined)?.toLowerCase() === 'yes';
         const action = mapPanAction(typeof ent.action === 'string' ? ent.action : undefined);
 
-        const multi = contexts.length > 1;
         const rawSrc = panMemberList(ent, 'source');
         const rawDst = panMemberList(ent, 'destination');
         const src = normalizeListForCore(rawSrc.map((m) => mapPolicyRef(vsysName, m, multi)));
@@ -258,6 +354,8 @@ export function parsePaloAltoXmlDocument(content: string, prepNotes: string[] = 
 
         const fromZones = panMemberList(ent, 'from');
         const toZones = panMemberList(ent, 'to');
+        for (const z of fromZones) addPanInterface(z);
+        for (const z of toZones) addPanInterface(z);
 
         const utm: Record<string, string> = {};
         const ps = ent['profile-setting'] as Record<string, unknown> | undefined;
