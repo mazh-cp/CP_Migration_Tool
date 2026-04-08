@@ -38,10 +38,13 @@ Migrator helps you:
 | Packages | @cisco2cp/core, parsers, exporters, ui |
 | Package manager | npm (workspaces) |
 | Build | Turborepo |
+| Runtime | **Node.js 22.x** LTS ([`.nvmrc`](.nvmrc); `package.json` `engines`) |
 
 ---
 
 ## Local Development
+
+**Prerequisites:** [Node.js 22.x](https://nodejs.org/) (LTS). With [nvm](https://github.com/nvm-sh/nvm): `nvm install && nvm use`. The repo sets **`engine-strict=true`** in [`.npmrc`](.npmrc) so `npm install` fails if your Node version does not satisfy `package.json` `engines`.
 
 ```bash
 # Install

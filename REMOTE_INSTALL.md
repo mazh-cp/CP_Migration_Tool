@@ -2,6 +2,8 @@
 
 Stable installation for Ubuntu 22.04/24.04 VMs (Azure, AWS, on-prem).
 
+**Runtime:** **Node.js 22.x** LTS. The installer and upgrade scripts install or upgrade Node via NodeSource when needed.
+
 ## One-Command Install
 
 ```bash

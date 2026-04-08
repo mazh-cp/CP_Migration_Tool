@@ -5,7 +5,7 @@
 
 ## Pre-requisites
 
-- [ ] Node.js >= 18
+- [ ] Node.js 22.x LTS (`node -v` → v22.x)
 - [ ] `npm install` completes
 - [ ] `cp apps/web/.env.example apps/web/.env` and configure
 - [ ] `npm run db:push` (from apps/web or via postinstall)

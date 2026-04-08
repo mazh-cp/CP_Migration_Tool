@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/depl
 
 This will:
 
-- Install Node.js LTS (20.x) if needed
+- Install or upgrade **Node.js 22.x** LTS (NodeSource) if missing or older than 22
 - Clone the repo to `/opt/cp_migration_tool`
 - Create service user `cpmt`
 - Create data directories and generate SESSION_SECRET
@@ -30,6 +30,8 @@ sudo bash deploy/install_azure_ubuntu.sh
 ```
 
 ### Option 2: Manual steps
+
+Requires **Node.js 22.x** (see `package.json` / `.nvmrc`).
 
 ```bash
 npm install

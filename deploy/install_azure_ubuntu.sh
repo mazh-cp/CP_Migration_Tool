@@ -2,7 +2,7 @@
 # =============================================================================
 # Migrator — Single-command Ubuntu/Azure installer
 # Run: curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/install_azure_ubuntu.sh | sudo bash
-# v1.5.2 - Ubuntu 22.04/24.04, Node 20 LTS
+# v1.5.2 - Ubuntu 22.04/24.04, Node.js 22.x LTS (NodeSource)
 # Compatible with Ubuntu 22.04 and 24.04
 # =============================================================================
 set -e
@@ -29,10 +29,20 @@ echo "  Repo:    $REPO_URL ($BRANCH)"
 echo "=============================================="
 echo ""
 
-# Install Node.js LTS if not present
+# Node.js 22.x LTS — install or upgrade if missing or major < 22
+NEED_NODE=0
 if ! command -v node &>/dev/null; then
-  echo "==> Installing Node.js LTS (20.x)..."
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  NEED_NODE=1
+else
+  NODE_MAJOR="$(node -p "parseInt(process.versions.node.split('.')[0],10)" 2>/dev/null || echo 0)"
+  if [ "${NODE_MAJOR:-0}" -lt 22 ]; then
+    echo "==> Node $(node -v) is below required 22.x; upgrading..."
+    NEED_NODE=1
+  fi
+fi
+if [ "$NEED_NODE" -eq 1 ]; then
+  echo "==> Installing Node.js 22.x LTS (NodeSource)..."
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y nodejs
 fi
 echo "==> Node $(node -v), npm $(npm -v)"

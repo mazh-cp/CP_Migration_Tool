@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Node.js 22.x LTS** is now the supported runtime: `package.json` `engines.node` is `>=22`, `.nvmrc` pins `22`, `.npmrc` enables `engine-strict`. Install and upgrade scripts (`deploy/install_azure_ubuntu.sh`, `deploy/update_azure_ubuntu.sh`) use NodeSource **setup_22.x** and upgrade existing Node versions below 22.
+
 ## [1.5.2] - 2026-04-08
 
 ### Security

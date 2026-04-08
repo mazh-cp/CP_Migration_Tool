@@ -3,6 +3,8 @@
 **Cisco ASA / FTD / Fortinet / Palo Alto → Check Point Migrator**  
 **Version:** 1.5.2
 
+**Runtime:** Node.js **22.x** LTS (see repository root `package.json` `engines`, `.nvmrc`, and `.npmrc` `engine-strict`). Ubuntu production installs use NodeSource **22.x** via `deploy/install_azure_ubuntu.sh` and `deploy/update_azure_ubuntu.sh` (existing Node versions older than 22 are upgraded when you run the updater).
+
 ---
 
 ## 1. Overview
