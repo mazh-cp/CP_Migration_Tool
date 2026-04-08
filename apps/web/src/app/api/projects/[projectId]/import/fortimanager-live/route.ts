@@ -102,8 +102,7 @@ export async function POST(
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues }, { status: 400 });
     }
-    const msg = err instanceof Error ? err.message : String(err);
     logger.error({ err, projectId }, 'FortiManager live import failed');
-    return NextResponse.json({ error: msg }, { status: 502 });
+    return NextResponse.json({ error: 'FortiManager request failed' }, { status: 502 });
   }
 }

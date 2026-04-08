@@ -5,10 +5,15 @@ import { saveArtifact } from '@/lib/upload';
 import { logger } from '@/lib/logger';
 import { requireProjectAccess } from '@/lib/project-access';
 
+const MAX_IMPORT_BYTES =
+  (Number.parseInt(process.env.MAX_UPLOAD_MB || '25', 10) || 25) * 1024 * 1024;
+
 const importSchema = z.object({
   sourceType: z.enum(['asa', 'ftd', 'fortinet', 'fortimanager', 'fortianalyzer', 'paloalto']),
-  filename: z.string().optional(),
-  content: z.string(),
+  filename: z.string().max(512).optional(),
+  content: z
+    .string()
+    .refine((s) => Buffer.byteLength(s, 'utf8') <= MAX_IMPORT_BYTES, 'Content exceeds upload limit'),
 });
 
 export async function POST(
@@ -56,7 +61,14 @@ export async function POST(
     });
 
     logger.info({ projectId, artifactId: artifact.id, sha256 }, 'Artifact imported');
-    return NextResponse.json(artifact);
+    return NextResponse.json({
+      id: artifact.id,
+      filename: artifact.filename,
+      size: artifact.size,
+      sha256: artifact.sha256,
+      sourceType: artifact.sourceType,
+      uploadedAt: artifact.uploadedAt,
+    });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.errors }, { status: 400 });

@@ -4,12 +4,40 @@ const axios = require('axios');
 const https = require('https');
 const { XMLParser } = require('fast-xml-parser');
 
+const PAN_MAX_RESPONSE_BYTES = 200 * 1024 * 1024;
+const PAN_REQUEST_MS = 120000;
+
 const apiParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
   trimValues: true,
   isArray: (name) => name === 'entry' || name === 'member',
+  processEntities: false,
+  ignoreDeclaration: true,
+  ignorePiTags: true,
 });
+
+function createPanAxios(host) {
+  return axios.create({
+    baseURL: `https://${host}/api`,
+    httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+    timeout: PAN_REQUEST_MS,
+    responseType: 'text',
+    validateStatus: () => true,
+    maxRedirects: 0,
+    maxContentLength: PAN_MAX_RESPONSE_BYTES,
+    maxBodyLength: PAN_MAX_RESPONSE_BYTES,
+  });
+}
+
+/** @param {string} vsys */
+function assertSafeVsysName(vsys) {
+  const s = String(vsys || 'vsys1');
+  if (!/^[a-zA-Z0-9._-]{1,64}$/.test(s)) {
+    throw new Error('Invalid vsys name');
+  }
+  return s;
+}
 
 class PanFirewallClient {
   /**
@@ -19,13 +47,7 @@ class PanFirewallClient {
   constructor(host, apiKey) {
     this.host = host;
     this.apiKey = apiKey;
-    this.http = axios.create({
-      baseURL: `https://${host}/api`,
-      httpsAgent: new https.Agent({ rejectUnauthorized: false }),
-      timeout: 30000,
-      responseType: 'text',
-      validateStatus: () => true,
-    });
+    this.http = createPanAxios(host);
   }
 
   /**
@@ -34,13 +56,7 @@ class PanFirewallClient {
    * @param {string} password
    */
   static async fromCredentials(host, username, password) {
-    const http = axios.create({
-      baseURL: `https://${host}/api`,
-      httpsAgent: new https.Agent({ rejectUnauthorized: false }),
-      timeout: 30000,
-      responseType: 'text',
-      validateStatus: () => true,
-    });
+    const http = createPanAxios(host);
     const u = encodeURIComponent(username);
     const p = encodeURIComponent(password);
     const { data, status } = await http.get(`/?type=keygen&user=${u}&password=${p}`);
@@ -122,22 +138,26 @@ class PanFirewallClient {
   }
 
   async getAddressObjects(vsys = 'vsys1') {
-    const xpath = `/config/devices/entry/vsys/entry[@name='${vsys}']/address`;
+    const v = assertSafeVsysName(vsys);
+    const xpath = `/config/devices/entry/vsys/entry[@name='${v}']/address`;
     return this.queryXpath(xpath);
   }
 
   async getServiceObjects(vsys = 'vsys1') {
-    const xpath = `/config/devices/entry/vsys/entry[@name='${vsys}']/service`;
+    const v = assertSafeVsysName(vsys);
+    const xpath = `/config/devices/entry/vsys/entry[@name='${v}']/service`;
     return this.queryXpath(xpath);
   }
 
   async getSecurityPolicies(vsys = 'vsys1') {
-    const xpath = `/config/devices/entry/vsys/entry[@name='${vsys}']/rulebase/security/rules`;
+    const v = assertSafeVsysName(vsys);
+    const xpath = `/config/devices/entry/vsys/entry[@name='${v}']/rulebase/security/rules`;
     return this.queryXpath(xpath);
   }
 
   async getNatPolicies(vsys = 'vsys1') {
-    const xpath = `/config/devices/entry/vsys/entry[@name='${vsys}']/rulebase/nat/rules`;
+    const v = assertSafeVsysName(vsys);
+    const xpath = `/config/devices/entry/vsys/entry[@name='${v}']/rulebase/nat/rules`;
     return this.queryXpath(xpath);
   }
 

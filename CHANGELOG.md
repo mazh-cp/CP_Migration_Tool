@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-04-08
+
+### Security
+
+- **Express Palo Alto API (`server.js`):** Production requires **`PALO_ALTO_EXPRESS_API_KEY`** and **`PALO_ALTO_HOST_ALLOWLIST`** (or explicit **`PALO_ALTO_ALLOW_ANY_HOST=true`**). Requests may authenticate with `Authorization: Bearer` or `X-API-Key` when the key is set.
+- **SSRF guard:** Resolves hostnames, blocks loopback, **169.254.0.0/16**, and optional RFC1918 via **`PALO_ALTO_BLOCK_PRIVATE_HOSTS`**. Allowlist enforced when configured.
+- **PanFirewallClient:** `maxRedirects: 0`, response size cap (~200MB), 120s timeout; XML API parser uses **`processEntities: false`** and ignores DTD/processing instructions; safe **vsys** names in XPath helpers.
+- **Web import API:** `POST .../import` returns artifact **metadata only** (no **`content`** body). **FortiManager live** errors return a generic 502 message (details in server logs).
+- **Auth diagnostic:** No longer returns the configured admin **username** in JSON.
+
+### Added
+
+- **`.github/workflows/security.yml`:** `npm ci`, `npm audit --audit-level=high`, lint, typecheck, test, build.
+- **FortiManager:** **`FMG_REQUEST_TIMEOUT_MS`** (default 120s) on JSON-RPC **`fetch`**.
+- **Next.js:** Optional **`Strict-Transport-Security`** when **`ENABLE_HSTS=1`** (HTTPS deployments only).
+- **`GET /health`:** Includes **`uptime`** (seconds).
+- **Express:** Graceful **SIGTERM/SIGINT** shutdown, **`uncaughtException`** / **`unhandledRejection`** handlers; **`app.disable('x-powered-by')`**.
+- **`.gitignore`:** `*.pem`, `*.key`, `*.p12`, `*.pfx`. **`scripts/clear-ports.sh`:** also clears port **3004**.
+
+### Changed
+
+- **Next.js** and **eslint-config-next** to **15.5.14** (security patches). Dependency audit fixes for **high** severity issues.
+
+### Deploy
+
+- Pinned examples and default **`DOC_RELEASE_TAG`** updated to **v1.5.2**.
+
 ## [1.5.1] - 2026-04-07
 
 ### Fixed

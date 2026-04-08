@@ -7,6 +7,15 @@ import { isIPv4, isIPv6 } from 'node:net';
 const allowPrivateFmgUrls =
   process.env.FMG_ALLOW_PRIVATE_URLS === '1' || process.env.FMG_ALLOW_PRIVATE_URLS === 'true';
 
+const FMG_FETCH_MS = Math.min(
+  Math.max(Number.parseInt(process.env.FMG_REQUEST_TIMEOUT_MS ?? '120000', 10) || 120_000, 5000),
+  600_000
+);
+
+function fmgSignal(): AbortSignal {
+  return AbortSignal.timeout(FMG_FETCH_MS);
+}
+
 function ipv4ToUint32(ip: string): number {
   const parts = ip.split('.').map((p) => Number(p));
   if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
@@ -109,6 +118,7 @@ export async function fortimanagerLogin(params: FortiManagerLoginParams): Promis
       params: [{ url: '/sys/login/user', data: { user: username, passwd: password } }],
       id: 1,
     }),
+    signal: fmgSignal(),
   });
   const j = await parseJsonSafe(res);
   if (!res.ok) {
@@ -135,6 +145,7 @@ async function fmgGet(baseUrl: string, session: string, url: string): Promise<un
       session,
       id: Math.floor(Math.random() * 1e9),
     }),
+    signal: fmgSignal(),
   });
   const j = await parseJsonSafe(res);
   if (!res.ok) {

@@ -10,6 +10,9 @@ export function parsePanosXmlString(xml: string): unknown {
     attributeNamePrefix: '@_',
     isArray: (tagName) => tagName === 'entry' || tagName === 'member',
     trimValues: true,
+    processEntities: false,
+    ignoreDeclaration: true,
+    ignorePiTags: true,
   });
   return parser.parse(xml);
 }

@@ -6,6 +6,10 @@ data
 .env
 .env.local
 .env.*.local
+*.pem
+*.key
+*.p12
+*.pfx
 *.log
 coverage
 .turbo

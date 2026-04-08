@@ -17,7 +17,6 @@ export async function GET() {
     authUserSet: !!authUser,
     authPasswordSet: !!authPass,
     authPasswordLength: authPass ? authPass.length : 0,
-    expectedUser: authUser || null,
     nodeEnv: process.env.NODE_ENV,
     hint: !authUser || !authPass
       ? 'Copy apps/web/.env.example to apps/web/.env and set AUTH_USERNAME and AUTH_PASSWORD, then restart the server.'

@@ -18,6 +18,9 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          ...(process.env.ENABLE_HSTS === 'true' || process.env.ENABLE_HSTS === '1'
+            ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]
+            : []),
         ],
       },
     ];

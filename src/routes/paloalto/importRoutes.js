@@ -1,12 +1,24 @@
 'use strict';
 
 const express = require('express');
+const Joi = require('joi');
 const { uploadSingle, handleUploadError } = require('../../middleware/fileUpload');
-const { connectionSchema, panoramaSchema, validateBody } = require('../../integrations/paloalto/validators/configValidator');
+const {
+  connectionSchema,
+  panoramaSchema,
+  downloadR8xSchema,
+  validateBody,
+} = require('../../integrations/paloalto/validators/configValidator');
+const {
+  assertPaloAltoHostSafe,
+  HostPolicyError,
+} = require('../../integrations/paloalto/utils/paloAltoHostGuard');
 const { PanFirewallClient } = require('../../integrations/paloalto/api/panFirewallClient');
 const { PanoramaClient } = require('../../integrations/paloalto/api/panoramaClient');
 
 const router = express.Router();
+
+const vsysFromRequestSchema = Joi.string().max(64).pattern(/^[a-zA-Z0-9._-]+$/).default('vsys1');
 
 let migrationStackPromise = null;
 function getMigrationStack() {
@@ -36,13 +48,25 @@ async function xmlStringToR8x(xml, vsys) {
 }
 
 async function createFirewallClient(body) {
+  await assertPaloAltoHostSafe(body.host);
   if (body.apiKey) return new PanFirewallClient(body.host, body.apiKey);
   return PanFirewallClient.fromCredentials(body.host, body.username, body.password);
 }
 
 async function createPanoramaClient(body) {
+  await assertPaloAltoHostSafe(body.host);
   if (body.apiKey) return new PanoramaClient(body.host, body.apiKey);
   return PanoramaClient.fromCredentials(body.host, body.username, body.password);
+}
+
+function parseVsys(req) {
+  const raw =
+    req.query.vsys != null ? String(req.query.vsys) : req.body?.vsys != null ? String(req.body.vsys) : 'vsys1';
+  const { error, value } = vsysFromRequestSchema.validate(raw);
+  if (error) {
+    return { error: true };
+  }
+  return { error: false, vsys: value };
 }
 
 router.post('/test-connection', validateBody(connectionSchema), async (req, res) => {
@@ -54,12 +78,16 @@ router.post('/test-connection', validateBody(connectionSchema), async (req, res)
     const model = sys?.model || sys?.['model'] || '';
     const version = sys?.version || sys?.['sw-version'] || '';
     const serial = sys?.serial || sys?.['serial'] || '';
-    return res.json({
+    return res.status(200).json({
       success: true,
       device: { hostname, model, version, serial },
+      tlsNote: 'TLS certificate verification is disabled for user-supplied firewall hosts (self-signed certs).',
     });
   } catch (err) {
-    return res.status(502).json({ error: 'Connection failed', detail: String(err?.message || err) });
+    if (err instanceof HostPolicyError) {
+      return res.status(400).json({ error: 'Host rejected by policy' });
+    }
+    return res.status(502).json({ error: 'Connection failed' });
   }
 });
 
@@ -69,9 +97,12 @@ router.post('/fetch-config', validateBody(connectionSchema), async (req, res) =>
     const xml = await client.getRunningConfigRaw();
     const vsys = req.body.vsys || 'vsys1';
     const { r8x, summary } = await xmlStringToR8x(xml, vsys);
-    return res.json({ success: true, summary, r8x });
+    return res.status(200).json({ success: true, summary, r8x });
   } catch (err) {
-    return res.status(502).json({ error: 'Fetch failed', detail: String(err?.message || err) });
+    if (err instanceof HostPolicyError) {
+      return res.status(400).json({ error: 'Host rejected by policy' });
+    }
+    return res.status(502).json({ error: 'Fetch failed' });
   }
 });
 
@@ -88,30 +119,35 @@ router.post(
       if (!req.file?.buffer) {
         return res.status(400).json({ error: 'Missing configFile upload' });
       }
+      const vsysParsed = parseVsys(req);
+      if (vsysParsed.error) {
+        return res.status(400).json({ error: 'Invalid vsys' });
+      }
       const raw = bufferToPaloAltoString(req.file.buffer);
-      const vsys = req.query.vsys || req.body?.vsys || 'vsys1';
-      const { r8x, summary } = await xmlStringToR8x(raw, vsys);
-      return res.json({ success: true, summary, r8x });
-    } catch (err) {
-      return res.status(400).json({ error: 'Upload parse failed', detail: String(err?.message || err) });
+      const { r8x, summary } = await xmlStringToR8x(raw, vsysParsed.vsys);
+      return res.status(200).json({ success: true, summary, r8x });
+    } catch {
+      return res.status(400).json({ error: 'Upload parse failed' });
     }
   }
 );
 
-router.post('/download', express.json(), (req, res) => {
+router.post('/download', validateBody(downloadR8xSchema), (req, res) => {
   const r8x = req.body?.r8x;
-  if (!r8x) return res.status(400).json({ error: 'Missing r8x in body' });
   res.setHeader('Content-Disposition', 'attachment; filename="cp_r8x_import.json"');
-  return res.json(r8x);
+  return res.status(200).json(r8x);
 });
 
 router.post('/panorama/devices', validateBody(panoramaSchema), async (req, res) => {
   try {
     const client = await createPanoramaClient(req.body);
     const devices = await client.getManagedDevices();
-    return res.json({ success: true, devices });
+    return res.status(200).json({ success: true, devices });
   } catch (err) {
-    return res.status(502).json({ error: 'Panorama request failed', detail: String(err?.message || err) });
+    if (err instanceof HostPolicyError) {
+      return res.status(400).json({ error: 'Host rejected by policy' });
+    }
+    return res.status(502).json({ error: 'Panorama request failed' });
   }
 });
 
@@ -125,9 +161,12 @@ router.post('/panorama/fetch-device', validateBody(panoramaSchema), async (req, 
     const xml = await client.getDeviceConfigRaw(serial);
     const vsysName = req.body.vsys || 'vsys1';
     const { r8x, summary } = await xmlStringToR8x(xml, vsysName);
-    return res.json({ success: true, summary, r8x });
+    return res.status(200).json({ success: true, summary, r8x });
   } catch (err) {
-    return res.status(502).json({ error: 'Panorama device fetch failed', detail: String(err?.message || err) });
+    if (err instanceof HostPolicyError) {
+      return res.status(400).json({ error: 'Host rejected by policy' });
+    }
+    return res.status(502).json({ error: 'Panorama device fetch failed' });
   }
 });
 

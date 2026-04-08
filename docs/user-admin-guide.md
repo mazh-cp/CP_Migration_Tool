@@ -1,7 +1,7 @@
 # User Admin Guide
 
 **Cisco ASA / FTD / Fortinet / Palo Alto → Check Point Migrator**  
-**Version:** 1.5.1
+**Version:** 1.5.2
 
 ---
 
