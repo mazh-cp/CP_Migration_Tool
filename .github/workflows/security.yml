@@ -8,12 +8,16 @@ on:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    # Next.js production build evaluates middleware/auth modules; they require a 32+ char secret.
+    env:
+      SESSION_SECRET: ci-build-placeholder-secret-min-32-chars-long-not-for-prod
+      DATABASE_URL: file:/tmp/cp-migration-tool-ci.db
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install
