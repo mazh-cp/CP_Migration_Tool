@@ -1,6 +1,14 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
+  "globalPassThroughEnv": [
+    "CI",
+    "DATABASE_URL",
+    "ENABLE_HSTS",
+    "NODE_ENV",
+    "NODE_OPTIONS",
+    "SESSION_SECRET"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

@@ -13,9 +13,10 @@ jobs:
       SESSION_SECRET: ci-build-placeholder-secret-min-32-chars-long-not-for-prod
       DATABASE_URL: file:/tmp/cp-migration-tool-ci.db
     steps:
-      - uses: actions/checkout@v4
+      # v5+ runs on Node 24 (avoids Actions’ Node 20 deprecation warning for checkout/setup-node).
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
@@ -36,4 +37,7 @@ jobs:
         run: npm test
 
       - name: Build
+        env:
+          # Next.js production compile can approach default heap limits on ubuntu-latest.
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npm run build
