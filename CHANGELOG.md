@@ -6,10 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-04-09
+
 ### Changed
 
 - **Node.js 22.x LTS** is now the supported runtime: `package.json` `engines.node` is `>=22`, `.nvmrc` pins `22`, `.npmrc` enables `engine-strict`. Install and upgrade scripts (`deploy/install_azure_ubuntu.sh`, `deploy/update_azure_ubuntu.sh`) use NodeSource **setup_22.x** and upgrade existing Node versions below 22.
 - **CI / Turborepo:** `turbo.json` lists `globalPassThroughEnv` (`SESSION_SECRET`, `DATABASE_URL`, etc.) so GitHub Actions env vars reach `next build` under Turborepo’s strict env mode. Security workflow uses `actions/checkout@v5`, `actions/setup-node@v5`, and a higher Node heap limit for the build step.
+
+### Deploy
+
+- Pinned examples and default **`DOC_RELEASE_TAG`** updated to **v1.5.3**.
 
 ## [1.5.2] - 2026-04-08
 

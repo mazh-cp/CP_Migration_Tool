@@ -2,7 +2,7 @@
 # =============================================================================
 # Migrator — Single-command Ubuntu/Azure installer
 # Run: curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/install_azure_ubuntu.sh | sudo bash
-# v1.5.2 - Ubuntu 22.04/24.04, Node.js 22.x LTS (NodeSource)
+# v1.5.3 - Ubuntu 22.04/24.04, Node.js 22.x LTS (NodeSource)
 # Compatible with Ubuntu 22.04 and 24.04
 # =============================================================================
 set -e
