@@ -17,6 +17,8 @@ export type TenantSession = {
   role: string;
   username: string;
   email: string | null;
+  /** Env / primary administrator account (`User.isPlatformAdmin`). */
+  isPlatformAdmin: boolean;
 };
 
 export type PlatformAdminSessionContext = {
@@ -27,6 +29,39 @@ export type PlatformAdminSessionContext = {
   username: string;
   expiresAt: Date;
 };
+
+/**
+ * Rejects JWTs issued before the user's last password change/reset, unless the
+ * token is backed by a still-ACTIVE UserSession (i.e. the caller's own session
+ * that was deliberately spared during revocation).
+ */
+async function isTokenStaleAfterPasswordChange(
+  userId: string,
+  passwordChangedAt: Date | null,
+  issuedAtSeconds: number | undefined,
+  sessionToken: string | undefined
+): Promise<boolean> {
+  if (!passwordChangedAt) return false;
+  if (issuedAtSeconds != null && issuedAtSeconds * 1000 >= passwordChangedAt.getTime()) {
+    return false;
+  }
+  if (sessionToken) {
+    const session = await prisma.userSession.findUnique({
+      where: { sessionToken },
+      select: { userId: true, status: true, revokedAt: true, expiresAt: true },
+    });
+    if (
+      session &&
+      session.userId === userId &&
+      session.status === 'ACTIVE' &&
+      !session.revokedAt &&
+      new Date() <= session.expiresAt
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /**
  * Validates auth cookie. If cookie is a JWT (legacy or platform-admin), returns user from payload.
@@ -52,9 +87,21 @@ export async function requireAuthSession(): Promise<{
     if (!userId || !username) return null;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true, isPlatformAdmin: true, isInternalSupportIdentity: true },
+      select: {
+        email: true,
+        isPlatformAdmin: true,
+        isInternalSupportIdentity: true,
+        passwordChangedAt: true,
+      },
     });
     if (!user) return null;
+    const stale = await isTokenStaleAfterPasswordChange(
+      userId,
+      user.passwordChangedAt,
+      payload.iat,
+      typeof payload.sessionToken === 'string' ? payload.sessionToken : undefined
+    );
+    if (stale) return null;
     return {
       userId,
       username,
@@ -81,17 +128,23 @@ export async function requireTenantSession(): Promise<TenantSession | null> {
   const secret = getSessionSecret();
   let sessionToken: string;
   let userIdFromJwt: string | undefined;
+  let issuedAtSeconds: number | undefined;
+  // True when the JWT was issued with a DB-backed session token; such cookies
+  // MUST validate against an ACTIVE UserSession and never use the JWT fallback.
+  let jwtHasSessionToken = false;
   try {
     const { payload } = await jwtVerify(token, secret);
+    jwtHasSessionToken = typeof payload.sessionToken === 'string' && payload.sessionToken.length > 0;
     sessionToken = (payload.sessionToken as string) ?? token;
     userIdFromJwt = payload.userId as string | undefined;
+    issuedAtSeconds = payload.iat;
   } catch {
     sessionToken = token;
   }
 
   const session = await prisma.userSession.findUnique({
     where: { sessionToken },
-    include: { user: { select: { username: true, email: true } }, tenant: true },
+    include: { user: { select: { username: true, email: true, isPlatformAdmin: true } }, tenant: true },
   });
   if (
     session &&
@@ -106,6 +159,12 @@ export async function requireTenantSession(): Promise<TenantSession | null> {
       },
     });
     if (membership && membership.status === 'active') {
+      const touchThresholdMs = 10 * 60 * 1000;
+      if (Date.now() - session.lastSeenAt.getTime() > touchThresholdMs) {
+        void prisma.userSession
+          .update({ where: { id: session.id }, data: { lastSeenAt: new Date() } })
+          .catch(() => {});
+      }
       return {
         userId: session.userId,
         tenantId: session.tenantId,
@@ -113,19 +172,35 @@ export async function requireTenantSession(): Promise<TenantSession | null> {
         role: membership.role,
         username: session.user.username,
         email: session.user.email,
+        isPlatformAdmin: session.user.isPlatformAdmin,
       };
     }
   }
 
-  // Fallback: valid JWT with userId but no/invalid UserSession (e.g. session creation failed or legacy cookie)
-  // Resolve tenant from user's primary membership so admin can still use the app
+  // A cookie issued with a DB session token whose session is missing, revoked,
+  // or expired is dead — never fall back to JWT-only auth for it. Otherwise a
+  // stolen cookie would outlive password change / session revocation.
+  if (jwtHasSessionToken) return null;
+
+  // Fallback: legacy JWT (no session token) with userId (e.g. env admin cookie
+  // issued before tenant sessions existed). Resolve tenant from the user's
+  // primary membership. Reject tokens issued before the last password change.
   const userId = userIdFromJwt;
   if (userId) {
     const membership = await prisma.tenantMembership.findFirst({
       where: { userId, isPrimary: true, status: 'active' },
-      include: { user: { select: { username: true, email: true } } },
+      include: {
+        user: { select: { username: true, email: true, isPlatformAdmin: true, passwordChangedAt: true } },
+      },
     });
     if (membership) {
+      const stale = await isTokenStaleAfterPasswordChange(
+        userId,
+        membership.user.passwordChangedAt,
+        issuedAtSeconds,
+        undefined
+      );
+      if (stale) return null;
       return {
         userId: membership.userId,
         tenantId: membership.tenantId,
@@ -133,6 +208,7 @@ export async function requireTenantSession(): Promise<TenantSession | null> {
         role: membership.role,
         username: membership.user.username,
         email: membership.user.email,
+        isPlatformAdmin: membership.user.isPlatformAdmin,
       };
     }
   }
