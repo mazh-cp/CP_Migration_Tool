@@ -102,7 +102,7 @@ export default function MapInterfacesPage() {
   return (
     <div>
       <nav className="text-sm text-slate-400 mb-6">
-        <Link href="/projects" className="hover:text-cyan-400">Projects</Link>
+        <Link href="/projects" className="hover:text-brand-300">Projects</Link>
         <span className="mx-2">/</span>
         <span className="text-slate-300">Map Interfaces</span>
       </nav>
@@ -127,11 +127,11 @@ export default function MapInterfacesPage() {
             {interfaces.map((iface) => (
               <div
                 key={iface.id}
-                className="p-4 rounded-xl border border-slate-600 bg-slate-800/50 hover:border-cyan-500/50 transition-colors"
+                className="p-4 rounded-xl border border-slate-600 bg-slate-800/50 hover:border-brand-400/50 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-3 h-3 rounded-full bg-cyan-500" />
-                  <span className="font-mono font-medium text-cyan-300">{iface.name}</span>
+                  <div className="w-3 h-3 rounded-full bg-brand-400" />
+                  <span className="font-mono font-medium text-brand-200">{iface.name}</span>
                 </div>
                 <div className="space-y-1 text-sm text-slate-400 mb-4">
                   <div>
@@ -160,7 +160,7 @@ export default function MapInterfacesPage() {
                             e.target.value === '__custom__' ? 'eth_custom' : e.target.value || iface.name,
                         })
                       }
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-400"
                     >
                       <option value="">Select interface</option>
                       {CP_INTERFACE_PRESETS.map((p) => (
@@ -216,14 +216,14 @@ export default function MapInterfacesPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg"
             >
               <Save className="w-4 h-4" />
               {saving ? 'Saving...' : saved ? 'Saved!' : 'Save mappings'}
             </button>
             <Link
               href={`/projects/${projectId}/map/objects`}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg"
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-400 rounded-lg"
             >
               Next: Map Objects
             </Link>

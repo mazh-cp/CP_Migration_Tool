@@ -180,7 +180,7 @@ export default function ParsePage() {
   return (
     <div>
       <nav className="text-sm text-slate-400 mb-6">
-        <Link href="/projects" className="hover:text-cyan-400">Projects</Link>
+        <Link href="/projects" className="hover:text-brand-300">Projects</Link>
         <span className="mx-2">/</span>
         <span className="text-slate-300">Parse & Normalize</span>
       </nav>
@@ -194,7 +194,7 @@ export default function ParsePage() {
             <button
               onClick={runParse}
               disabled={loading}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg"
             >
               {loading ? 'Parsing…' : 'Run Parse'}
             </button>
@@ -208,19 +208,19 @@ export default function ParsePage() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
-              <div className="text-2xl font-bold text-cyan-400">{counts.objects ?? 0}</div>
+              <div className="text-2xl font-bold text-brand-300">{counts.objects ?? 0}</div>
               <div className="text-sm text-slate-400">Objects</div>
             </div>
             <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
-              <div className="text-2xl font-bold text-cyan-400">{counts.rules ?? 0}</div>
+              <div className="text-2xl font-bold text-brand-300">{counts.rules ?? 0}</div>
               <div className="text-sm text-slate-400">Rules</div>
             </div>
             <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
-              <div className="text-2xl font-bold text-cyan-400">{counts.nat ?? 0}</div>
+              <div className="text-2xl font-bold text-brand-300">{counts.nat ?? 0}</div>
               <div className="text-sm text-slate-400">NAT</div>
             </div>
             <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
-              <div className="text-2xl font-bold text-cyan-400">{counts.interfaces ?? 0}</div>
+              <div className="text-2xl font-bold text-brand-300">{counts.interfaces ?? 0}</div>
               <div className="text-sm text-slate-400">Interfaces</div>
             </div>
             <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
@@ -231,7 +231,7 @@ export default function ParsePage() {
           <div className="flex gap-4">
             <Link
               href={`/projects/${projectId}/map/interfaces`}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg"
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-400 rounded-lg"
             >
               Proceed to Map Interfaces
             </Link>

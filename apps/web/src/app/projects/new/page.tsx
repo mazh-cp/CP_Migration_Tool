@@ -40,7 +40,7 @@ export default function NewProjectPage() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:ring-2 focus:ring-brand-400"
             required
             placeholder="e.g. DMZ Migration"
           />
@@ -54,7 +54,7 @@ export default function NewProjectPage() {
                 e.target.value as 'asa' | 'ftd' | 'both' | 'fortinet' | 'fortimanager' | 'paloalto'
               )
             }
-            className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg focus:ring-2 focus:ring-brand-400"
           >
             <option value="asa">Cisco ASA</option>
             <option value="ftd">Cisco FTD</option>
@@ -67,7 +67,7 @@ export default function NewProjectPage() {
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg font-medium"
+          className="px-4 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg font-medium"
         >
           {loading ? 'Creating...' : 'Create & Import'}
         </button>

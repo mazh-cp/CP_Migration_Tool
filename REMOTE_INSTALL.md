@@ -47,39 +47,59 @@ sudo systemctl restart cp-migration-tool
 
 Pulls latest `main`, runs `npm ci`, Prisma, build, **refreshes the systemd unit** (avoids stale `ExecStart`), and restarts the service.
 
+### From your laptop — single command (no git clone)
+
+Replace `ubuntu@YOUR-VM` with your SSH target. Uses `curl` **on the VM** (same as logging in and running the curl upgrade there).
+
+**Pinned release `v1.5.3` (recommended):**
+
+```bash
+ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo env BRANCH=v1.5.3 DOC_RELEASE_TAG=v1.5.3 bash'
+```
+
+**Latest `main`:**
+
+```bash
+ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo env BRANCH=main DOC_RELEASE_TAG=main bash'
+```
+
+Fork: change `mazh-cp/CP_Migration_Tool` in both URLs to `your-org/your-fork`.
+
+### On the VM (already have a shell on the server)
+
 **Latest `main`:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo bash
 ```
 
-**Pinned release (v1.3.1):** `sudo` does **not** keep `BRANCH` from `BRANCH=v1.x curl | sudo bash`. Pass the tag **inside** `sudo` or use **`bash -s -- <tag>`**:
+**Pinned release (v1.5.3):** `sudo` does **not** keep `BRANCH` from `BRANCH=v1.x curl | sudo bash`. Pass the tag **inside** `sudo` or use **`bash -s -- <tag>`**:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.1/deploy/upgrade-production.sh | sudo bash -s -- v1.3.1
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo bash -s -- v1.5.3
 ```
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.1/deploy/upgrade-production.sh | sudo env BRANCH=v1.3.1 bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo env BRANCH=v1.5.3 bash
 ```
 
 **Direct updater** (no wrapper; works for any tag):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.3.1/deploy/update_azure_ubuntu.sh | sudo env BRANCH=v1.3.1 bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/update_azure_ubuntu.sh | sudo env BRANCH=v1.5.3 bash
 ```
 
-Optional: `PORT=3000` for the unit file (health checks also read `PORT` from `apps/web/.env`). Doc banner: `DOC_RELEASE_TAG=v1.3.1`.
+Optional: `PORT=3000` for the unit file (health checks also read `PORT` from `apps/web/.env`). Doc banner: `DOC_RELEASE_TAG=v1.5.3`. Builds use `NODE_OPTIONS=--max-old-space-size=6144` by default on the server (override if needed).
 
 ### Upgrade from your workstation (SSH)
 
 If the repo is cloned locally:
 
 ```bash
-REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.3.1
+REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.5.3
 ```
 
-Uses `curl` on the remote host; set `REPO_SLUG=org/repo` for a fork.
+Uses `curl` on the remote host; set `REPO_SLUG=org/repo` for a fork. Optional: `NODE_OPTIONS='--max-old-space-size=8192'` before the command to raise the Node heap for `npm run build` on very small VMs.
 
 ## Troubleshooting
 

@@ -3,6 +3,27 @@ import { prisma } from './prisma';
 import bcrypt from 'bcryptjs';
 import { randomBytes, createHmac } from 'crypto';
 import { getSessionCookieName as getSessionCookieNameFromContext } from './session-context';
+import { PASSWORD_HASH_ROUNDS } from './password-policy';
+
+/** Hash a plaintext password with the app-wide bcrypt work factor. */
+export function hashPassword(plain: string): Promise<string> {
+  return bcrypt.hash(plain, PASSWORD_HASH_ROUNDS);
+}
+
+/**
+ * Revoke a user's ACTIVE sessions across all tenants (e.g. after a password
+ * change). Pass `exceptSessionId` to keep the caller's current session alive.
+ */
+export async function revokeAllSessionsForUser(userId: string, exceptSessionId?: string): Promise<void> {
+  await prisma.userSession.updateMany({
+    where: {
+      userId,
+      status: 'ACTIVE',
+      ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}),
+    },
+    data: { status: 'REVOKED', revokedAt: new Date() },
+  });
+}
 
 /** SSO URL params from 3rd party redirect. Use opaque sso_id, not email. */
 export type SsoRedirectParams = {
@@ -263,31 +284,38 @@ export async function verifyCredentials(
   const u = username?.trim() ?? '';
   const p = password ?? '';
   if (envUser && envPass && u === envUser && p === envPass) {
-    let user = await prisma.user.findUnique({ where: { username: envUser } });
-    const hash = await bcrypt.hash(envPass, 10);
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          username: envUser,
-          passwordHash: hash,
-          isPlatformAdmin: true,
-        },
-      });
-      const tenantId = await getDefaultTenantId();
-      await prisma.tenantMembership.upsert({
-        where: { tenantId_userId: { tenantId, userId: user.id } },
-        create: { tenantId, userId: user.id, role: 'admin', isPrimary: true, status: 'active' },
-        update: {},
-      });
-    } else {
-      // Keep DB password in sync with .env so login always works when env matches
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash: hash, isPlatformAdmin: true },
-      });
+    const existing = await prisma.user.findUnique({ where: { username: envUser } });
+    // Once the admin sets their own password in-app, the env AUTH_PASSWORD is no
+    // longer authoritative: stop syncing the DB hash and fall through to the
+    // normal bcrypt check so the old env value can no longer log in.
+    if (!existing?.passwordChangedByUser) {
+      const hash = await hashPassword(envPass);
+      let user = existing;
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            username: envUser,
+            passwordHash: hash,
+            isPlatformAdmin: true,
+          },
+        });
+        const tenantId = await getDefaultTenantId();
+        await prisma.tenantMembership.upsert({
+          where: { tenantId_userId: { tenantId, userId: user.id } },
+          create: { tenantId, userId: user.id, role: 'admin', isPrimary: true, status: 'active' },
+          update: {},
+        });
+      } else {
+        // Bootstrap only: keep DB password in sync with .env until the admin
+        // changes it in-app.
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { passwordHash: hash, isPlatformAdmin: true },
+        });
+      }
+      const tenantId = await ensurePrimaryTenantForUser(user.id);
+      return { userId: user.id, username: user.username, isAdmin: true, tenantId };
     }
-    const tenantId = await ensurePrimaryTenantForUser(user.id);
-    return { userId: user.id, username: user.username, isAdmin: true, tenantId };
   }
   const user = await prisma.user.findUnique({ where: { username: u } });
   if (!user) return null;

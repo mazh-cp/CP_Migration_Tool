@@ -16,20 +16,20 @@ export default function DocumentationPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2 flex items-center gap-2">
-        <BookOpen className="w-7 h-7 text-cyan-400" />
+        <BookOpen className="w-7 h-7 text-brand-300" />
         Documentation
       </h1>
       <p className="text-slate-400 mb-8">
-        Reference guides and documentation for Migrator.
+        Reference guides and documentation for the Check Point Migration Tool.
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         {docs.map((doc) => (
           <Link
             key={doc.slug}
             href={`/documentation/${doc.slug}`}
-            className="block p-5 rounded-xl border border-slate-700 bg-slate-800/50 hover:border-cyan-500/50 hover:bg-slate-800 transition-colors"
+            className="block p-5 rounded-xl border border-slate-700 bg-slate-800/50 hover:border-brand-400/50 hover:bg-slate-800 transition-colors"
           >
-            <h2 className="font-semibold text-cyan-400 mb-1">{doc.title}</h2>
+            <h2 className="font-semibold text-brand-300 mb-1">{doc.title}</h2>
             <p className="text-sm text-slate-400">{doc.description}</p>
           </Link>
         ))}

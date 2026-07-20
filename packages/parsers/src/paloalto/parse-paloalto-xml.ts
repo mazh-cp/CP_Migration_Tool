@@ -56,18 +56,97 @@ type VsysContext = {
   device?: Record<string, unknown>;
 };
 
+/** Panorama: objects and security rules often live under `device-group/entry`, not under template `vsys`. */
+type DeviceGroupContext = {
+  dgName: string;
+  root: Record<string, unknown>;
+};
+
+function collectDeviceGroupContexts(config: Record<string, unknown>): DeviceGroupContext[] {
+  const devices = config.devices as Record<string, unknown> | undefined;
+  if (!devices?.entry) return [];
+  const out: DeviceGroupContext[] = [];
+  for (const dev of ensureArray(devices.entry as Record<string, unknown>[] | undefined)) {
+    const dg = dev['device-group'] as Record<string, unknown> | undefined;
+    if (!dg?.entry) continue;
+    for (const ent of ensureArray(dg.entry as Record<string, unknown>[] | undefined)) {
+      const nm = entryName(ent) || 'device-group';
+      out.push({ dgName: nm, root: ent });
+    }
+  }
+  return out;
+}
+
+/** Pre/post-rulebase security entries (Panorama device-group shape). */
+function collectDeviceGroupSecurityRuleEntries(dgRoot: Record<string, unknown>): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+
+  const pullFromSecurity = (sec: Record<string, unknown> | undefined) => {
+    const rules = sec?.rules as Record<string, unknown> | undefined;
+    if (rules?.entry) {
+      out.push(...ensureArray(rules.entry as Record<string, unknown>[]));
+    }
+  };
+
+  const pre = dgRoot['pre-rulebase'] as Record<string, unknown> | undefined;
+  if (pre) {
+    pullFromSecurity(pre.security as Record<string, unknown> | undefined);
+  }
+
+  const post = dgRoot['post-rulebase'] as Record<string, unknown> | undefined;
+  if (post) {
+    const dsr = post['default-security-rules'] as Record<string, unknown> | undefined;
+    const dsrRules = dsr?.rules as Record<string, unknown> | undefined;
+    if (dsrRules?.entry) {
+      out.push(...ensureArray(dsrRules.entry as Record<string, unknown>[]));
+    }
+    pullFromSecurity(post.security as Record<string, unknown> | undefined);
+  }
+
+  return out;
+}
+
+/**
+ * Panorama (and some exports) put firewall config under
+ * `devices/entry/<panorama>/template/entry/<name>/config/devices/entry/.../vsys/entry`,
+ * not under a top-level `vsys` on the outer device. Walk `template` trees so zones,
+ * network interfaces, and rulebases are discovered.
+ */
+function collectVsysContextsFromDevice(
+  dev: Record<string, unknown>,
+  templateScope: string | undefined,
+  out: VsysContext[]
+): void {
+  const vsysBlock = dev.vsys as Record<string, unknown> | undefined;
+  if (vsysBlock?.entry) {
+    for (const vs of ensureArray(vsysBlock.entry as Record<string, unknown>[] | undefined)) {
+      const vn = entryName(vs) || 'vsys1';
+      const vsysName = templateScope ? `${templateScope}/${vn}` : vn;
+      out.push({ vsysName, root: vs, device: dev });
+    }
+  }
+
+  const tmpl = dev.template as Record<string, unknown> | undefined;
+  if (!tmpl?.entry) return;
+  for (const te of ensureArray(tmpl.entry as Record<string, unknown>[] | undefined)) {
+    const tLabel = entryName(te) || 'template';
+    const scope = templateScope ? `${templateScope}/${tLabel}` : tLabel;
+    const innerConfig = te.config as Record<string, unknown> | undefined;
+    const innerDevices = innerConfig?.devices as Record<string, unknown> | undefined;
+    if (!innerDevices?.entry) continue;
+    for (const idev of ensureArray(innerDevices.entry as Record<string, unknown>[] | undefined)) {
+      collectVsysContextsFromDevice(idev, scope, out);
+    }
+  }
+}
+
 function collectVsysContexts(config: Record<string, unknown>): VsysContext[] {
   const devices = config.devices as Record<string, unknown> | undefined;
-  if (!devices) return [{ vsysName: 'vsys1', root: config }];
+  if (!devices?.entry) return [{ vsysName: 'vsys1', root: config }];
 
   const out: VsysContext[] = [];
   for (const dev of ensureArray(devices.entry as Record<string, unknown>[] | undefined)) {
-    const vsysBlock = dev.vsys as Record<string, unknown> | undefined;
-    if (!vsysBlock) continue;
-    for (const vs of ensureArray(vsysBlock.entry as Record<string, unknown>[] | undefined)) {
-      const vn = entryName(vs) || 'vsys1';
-      out.push({ vsysName: vn, root: vs, device: dev });
-    }
+    collectVsysContextsFromDevice(dev, undefined, out);
   }
   return out.length > 0 ? out : [{ vsysName: 'vsys1', root: config }];
 }
@@ -217,19 +296,20 @@ export function parsePaloAltoXmlDocument(content: string, prepNotes: string[] = 
   }
 
   const contexts = collectVsysContexts(config);
-  if (contexts.length > 1) {
+  const dgContexts = collectDeviceGroupContexts(config);
+  const scopeCount = contexts.length + dgContexts.length;
+  const multi = scopeCount > 1;
+
+  if (scopeCount > 1) {
     warnings.push(
-      `Palo Alto: ${contexts.length} vsys contexts merged; object/rule names are prefixed with vsys when needed to avoid collisions.`
+      `Palo Alto: merged ${contexts.length} vsys/template context(s) and ${dgContexts.length} Panorama device-group(s); names are prefixed to avoid collisions.`
     );
   }
 
-  const qualify = (vsys: string, name: string) =>
-    contexts.length > 1 ? `${vsys}/${name}` : name;
-  const qualifyRef = (vsys: string, ref: string) =>
-    contexts.length > 1 ? `${vsys}/${ref}` : ref;
+  const qualify = (scope: string, name: string) => (multi ? `${scope}/${name}` : name);
+  const qualifyRef = (scope: string, ref: string) => (multi ? `${scope}/${ref}` : ref);
 
   for (const { vsysName, root, device } of contexts) {
-    const multi = contexts.length > 1;
     const emittedIface = new Set<string>();
 
     const addPanInterface = (shortName: string, ip?: string, mask?: string) => {
@@ -394,6 +474,165 @@ export function parsePaloAltoXmlDocument(content: string, prepNotes: string[] = 
             `Palo Alto rule "${qn}": App-ID applications present (${apps.join(', ')}) — verify Check Point Application Control mapping.`
           );
         }
+      }
+    }
+  }
+
+  // Panorama: addresses / services / security rules live under device-group/entry, not template vsys.
+  for (const { dgName, root } of dgContexts) {
+    const emittedIface = new Set<string>();
+    const addPanInterface = (shortName: string, ip?: string, mask?: string) => {
+      if (!shortName || shortName.toLowerCase() === 'any') return;
+      const qn = multi ? `${dgName}/${shortName}` : shortName;
+      if (emittedIface.has(qn)) return;
+      emittedIface.add(qn);
+      const st: InterfaceStatement = { type: 'interface', name: qn };
+      if (ip) st.ipAddress = ip;
+      if (mask) st.mask = mask;
+      statements.push(st);
+    };
+
+    const zoneBlock = root.zone as Record<string, unknown> | undefined;
+    if (zoneBlock?.entry) {
+      for (const ent of ensureArray(zoneBlock.entry as Record<string, unknown>[])) {
+        const nm = entryName(ent);
+        if (nm) addPanInterface(nm);
+      }
+    }
+
+    const net = root.network as Record<string, unknown> | undefined;
+    for (const ent of iteratePanNetworkInterfaceEntries(net)) {
+      const nm = entryName(ent);
+      if (!nm) continue;
+      const { ip, mask } = firstIpFromPanInterfaceEntry(ent);
+      addPanInterface(nm, ip, mask);
+    }
+
+    const addressBlock = root.address as Record<string, unknown> | undefined;
+    if (addressBlock?.entry) {
+      for (const ent of ensureArray(addressBlock.entry as Record<string, unknown>[])) {
+        const nm = entryName(ent);
+        if (!nm) continue;
+        const qn = qualify(dgName, nm);
+        const body = { ...ent };
+        delete body['@_name'];
+        const on = addressEntryToObjectNetwork(qn, body);
+        if (on) statements.push(on);
+        else warnings.push(`Palo Alto address "${nm}" (device-group ${dgName}): unsupported type; skipped.`);
+      }
+    }
+
+    const agBlock = root['address-group'] as Record<string, unknown> | undefined;
+    if (agBlock?.entry) {
+      for (const ent of ensureArray(agBlock.entry as Record<string, unknown>[])) {
+        const nm = entryName(ent);
+        if (!nm) continue;
+        const qn = qualify(dgName, nm);
+        const staticB = ent.static as Record<string, unknown> | undefined;
+        const mems = memberTexts(staticB?.member);
+        if (mems.length === 0) {
+          warnings.push(`Palo Alto address-group "${nm}" (${dgName}): no static members; skipped.`);
+          continue;
+        }
+        const entries: ObjectGroupNetwork['entries'] = mems.map((m) => ({
+          type: 'object' as const,
+          name: qualifyRef(dgName, m),
+        }));
+        statements.push({ type: 'object-group-network', name: qn, entries });
+      }
+    }
+
+    const svcBlock = root.service as Record<string, unknown> | undefined;
+    if (svcBlock?.entry) {
+      for (const ent of ensureArray(svcBlock.entry as Record<string, unknown>[])) {
+        const nm = entryName(ent);
+        if (!nm) continue;
+        const qn = qualify(dgName, nm);
+        const body = { ...ent };
+        delete body['@_name'];
+        const os = parseTcpUdpService(qn, body);
+        if (os) statements.push(os);
+        else warnings.push(`Palo Alto service "${nm}" (${dgName}): non TCP/UDP or complex protocol; skipped.`);
+      }
+    }
+
+    const sgBlock = root['service-group'] as Record<string, unknown> | undefined;
+    if (sgBlock?.entry) {
+      for (const ent of ensureArray(sgBlock.entry as Record<string, unknown>[])) {
+        const nm = entryName(ent);
+        if (!nm) continue;
+        const qn = qualify(dgName, nm);
+        const mems = memberTexts((ent.members as Record<string, unknown> | undefined)?.member);
+        if (mems.length === 0) {
+          warnings.push(`Palo Alto service-group "${nm}" (${dgName}): no members; skipped.`);
+          continue;
+        }
+        const entries: ObjectGroupService['entries'] = mems.map((m) => ({
+          type: 'service-object' as const,
+          name: qualifyRef(dgName, m),
+        }));
+        statements.push({ type: 'object-group-service', name: qn, entries });
+      }
+    }
+
+    for (const ent of collectDeviceGroupSecurityRuleEntries(root)) {
+      const nm = entryName(ent);
+      if (!nm) continue;
+      const qn = qualify(dgName, nm);
+      const disabled = (ent.disabled as string | undefined)?.toLowerCase() === 'yes';
+      const action = mapPanAction(typeof ent.action === 'string' ? ent.action : undefined);
+
+      const rawSrc = panMemberList(ent, 'source');
+      const rawDst = panMemberList(ent, 'destination');
+      const src = normalizeListForCore(rawSrc.map((m) => mapPolicyRef(dgName, m, multi)));
+      const dst = normalizeListForCore(rawDst.map((m) => mapPolicyRef(dgName, m, multi)));
+      const apps = panMemberList(ent, 'application');
+      const rawSvc = panMemberList(ent, 'service');
+      const onlyAppDefault =
+        rawSvc.length > 0 && rawSvc.every((s) => s.toLowerCase() === 'application-default');
+      const svcs = onlyAppDefault
+        ? (['all'] as string[])
+        : normalizeListForCore(rawSvc.map((m) => mapPolicyRef(dgName, m, multi)));
+
+      const fromZones = panMemberList(ent, 'from');
+      const toZones = panMemberList(ent, 'to');
+
+      const utm: Record<string, string> = {};
+      const ps = ent['profile-setting'] as Record<string, unknown> | undefined;
+      if (ps && typeof ps === 'object') {
+        for (const k of Object.keys(ps)) {
+          if (k === '@_name') continue;
+          const v = ps[k];
+          if (typeof v === 'string') utm[k] = v;
+          else if (v && typeof v === 'object' && 'member' in (v as object)) {
+            const t = memberTexts((v as Record<string, unknown>).member);
+            if (t.length) utm[k] = t.join(',');
+          }
+        }
+      }
+
+      const explicit: ExplicitPolicyRule = {
+        type: 'explicit-policy-rule',
+        name: qn,
+        ruleId: qn,
+        enabled: !disabled,
+        sourceNames: src,
+        destinationNames: dst,
+        serviceNames: svcs.length ? svcs : ['all'],
+        action,
+        log: 'none',
+        sourceInterfaceNames: fromZones.length ? fromZones : undefined,
+        destinationInterfaceNames: toZones.length ? toZones : undefined,
+        utmProfileRefs: Object.keys(utm).length ? utm : undefined,
+        possibleInternetServiceNames:
+          apps.length && !apps.every((a) => a.toLowerCase() === 'any') ? apps : undefined,
+      };
+      statements.push(explicit);
+
+      if (apps.some((a) => a.toLowerCase() !== 'any' && a.toLowerCase() !== 'none')) {
+        warnings.push(
+          `Palo Alto rule "${qn}": App-ID applications present (${apps.join(', ')}) — verify Check Point Application Control mapping.`
+        );
       }
     }
   }

@@ -5,6 +5,8 @@ import { parsePaloAltoXml } from './parse-paloalto-xml';
 
 const sampleXml = readFileSync(join(process.cwd(), 'testdata/sample-panos-minimal.xml'), 'utf-8');
 const deviceNetworkXml = readFileSync(join(process.cwd(), 'testdata/sample-panos-device-network.xml'), 'utf-8');
+const panoramaTemplateXml = readFileSync(join(process.cwd(), 'testdata/sample-panos-panorama-template.xml'), 'utf-8');
+const panoramaDeviceGroupXml = readFileSync(join(process.cwd(), 'testdata/sample-panos-device-group-only.xml'), 'utf-8');
 
 describe('parsePaloAltoXml', () => {
   it('parses sample-panos-minimal.xml into AST statements', () => {
@@ -38,6 +40,32 @@ describe('parsePaloAltoXml', () => {
     expect(byName['ethernet1/2']?.ipAddress).toBe('203.0.113.2');
     expect(byName['zone-mgmt']).toBeDefined();
     expect(byName['zone-untrust']).toBeDefined();
+  });
+
+  it('extracts vsys under Panorama template/config/devices (zones + device network)', () => {
+    const { statements, warnings } = parsePaloAltoXml(panoramaTemplateXml);
+    const ifaces = statements.filter((s) => s.type === 'interface') as { name: string; ipAddress?: string }[];
+    const byName = Object.fromEntries(ifaces.map((i) => [i.name, i]));
+    // Single vsys context: names are not prefixed (prefixes apply when multiple contexts merge).
+    expect(byName['Trust']).toBeDefined();
+    expect(byName['Untrust']).toBeDefined();
+    expect(byName['ethernet1/1']?.ipAddress).toBe('10.0.1.1');
+    expect(warnings.some((w) => /vsys contexts merged/i.test(w))).toBe(false);
+    expect(statements.some((s) => s.type === 'explicit-policy-rule')).toBe(true);
+  });
+
+  it('extracts addresses, services, and pre/post-rulebase rules from Panorama device-group', () => {
+    const { statements, warnings } = parsePaloAltoXml(panoramaDeviceGroupXml);
+    expect(
+      statements.some((s) => s.type === 'object-network' && (s as { name: string }).name === 'DG-1/obj-web')
+    ).toBe(true);
+    expect(
+      statements.some((s) => s.type === 'object-service' && (s as { name: string }).name === 'DG-1/tcp-443')
+    ).toBe(true);
+    const rules = statements.filter((s) => s.type === 'explicit-policy-rule') as { name: string }[];
+    expect(rules.some((r) => r.name === 'DG-1/allow-web')).toBe(true);
+    expect(rules.some((r) => r.name === 'DG-1/intrazone-default')).toBe(true);
+    expect(warnings.some((w) => /device-group/i.test(w))).toBe(true);
   });
 
   it('returns a warning for invalid XML', () => {

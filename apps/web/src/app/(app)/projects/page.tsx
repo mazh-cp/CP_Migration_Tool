@@ -46,7 +46,7 @@ export default function ProjectsPage() {
         <h1 className="text-2xl font-bold">Projects</h1>
         <Link
           href="/projects/new"
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-400 rounded-lg font-medium"
         >
           <Plus className="w-5 h-5" />
           New Project
@@ -58,7 +58,7 @@ export default function ProjectsPage() {
           <div className="border border-dashed border-slate-600 rounded-xl p-12 text-center text-slate-400">
             <FolderKanban className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>No projects yet. Create one to start converting configurations.</p>
-            <Link href="/projects/new" className="text-cyan-400 hover:underline mt-2 inline-block">
+            <Link href="/projects/new" className="text-brand-300 hover:underline mt-2 inline-block">
               Create project
             </Link>
           </div>
@@ -66,11 +66,11 @@ export default function ProjectsPage() {
         {projects.map((p) => (
           <div
             key={p.id}
-            className="p-6 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-cyan-500/50 transition-colors"
+            className="p-6 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-brand-400/50 transition-colors"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <Link href={`/projects/${p.id}/import`} className="font-semibold text-white hover:text-cyan-300">
+                <Link href={`/projects/${p.id}/import`} className="font-semibold text-white hover:text-brand-200">
                   {p.name}
                 </Link>
                 <div className="flex items-center gap-2 mt-1">
@@ -98,7 +98,7 @@ export default function ProjectsPage() {
                   type="button"
                   onClick={() => handleDelete(p)}
                   disabled={deletingProjectId === p.id}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-300 hover:text-red-200 hover:bg-red-500/10 disabled:opacity-50"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-300 hover:text-red-200 hover:bg-danger/10 disabled:opacity-50"
                   title="Delete project"
                 >
                   <Trash2 className="w-4 h-4" />

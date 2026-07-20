@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<config version="11.1.0" urldb="paloaltonetworks">
+  <devices>
+    <entry name="localhost.localdomain">
+      <device-group>
+        <entry name="DG-1">
+          <address>
+            <entry name="obj-web">
+              <ip-netmask>203.0.113.10/32</ip-netmask>
+            </entry>
+          </address>
+          <service>
+            <entry name="tcp-443">
+              <protocol>
+                <tcp>
+                  <port>443</port>
+                </tcp>
+              </protocol>
+            </entry>
+          </service>
+          <pre-rulebase>
+            <security>
+              <rules>
+                <entry name="allow-web">
+                  <to>
+                    <member>any</member>
+                  </to>
+                  <from>
+                    <member>any</member>
+                  </from>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>obj-web</member>
+                  </destination>
+                  <application>
+                    <member>any</member>
+                  </application>
+                  <service>
+                    <member>tcp-443</member>
+                  </service>
+                  <action>allow</action>
+                </entry>
+              </rules>
+            </security>
+          </pre-rulebase>
+          <post-rulebase>
+            <default-security-rules>
+              <rules>
+                <entry name="intrazone-default">
+                  <action>allow</action>
+                </entry>
+              </rules>
+            </default-security-rules>
+            <security>
+              <rules/>
+            </security>
+          </post-rulebase>
+        </entry>
+      </device-group>
+    </entry>
+  </devices>
+</config>

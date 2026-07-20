@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireProjectAccess, canManageMembers } from '@/lib/project-access';
+import { assertTenantAdminCanManageUser } from '@/lib/platform-user-guard';
 
 const addMemberSchema = z.object({
   userId: z.string().uuid(),
@@ -18,9 +19,12 @@ export async function GET(
 
   const members = await prisma.projectMember.findMany({
     where: { projectId, project: { tenantId: auth.session.tenantId } },
-    include: { user: { select: { id: true, username: true } } },
+    include: { user: { select: { id: true, username: true, isPlatformAdmin: true } } },
   });
-  return NextResponse.json(members.map((m) => ({ id: m.id, userId: m.userId, username: m.user.username, role: m.role })));
+  const visible = auth.session.isPlatformAdmin
+    ? members
+    : members.filter((m) => !m.user.isPlatformAdmin);
+  return NextResponse.json(visible.map((m) => ({ id: m.id, userId: m.userId, username: m.user.username, role: m.role })));
 }
 
 export async function POST(
@@ -49,6 +53,11 @@ export async function POST(
 
   const targetUser = await prisma.user.findUnique({ where: { id: body.userId } });
   if (!targetUser) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+  const guard = await assertTenantAdminCanManageUser(auth.session, body.userId);
+  if (!guard.ok) {
+    return NextResponse.json({ error: guard.error }, { status: guard.status });
+  }
 
   const targetMembership = await prisma.tenantMembership.findFirst({
     where: { userId: body.userId, tenantId: auth.session.tenantId, status: 'active' },

@@ -45,7 +45,7 @@ export default function ExportPage() {
   return (
     <div>
       <nav className="text-sm text-slate-400 mb-6">
-        <Link href="/projects" className="hover:text-cyan-400">Projects</Link>
+        <Link href="/projects" className="hover:text-brand-300">Projects</Link>
         <span className="mx-2">/</span>
         <span className="text-slate-300">Export</span>
       </nav>
@@ -64,7 +64,7 @@ export default function ExportPage() {
                 name="target"
                 checked={target === 'sms'}
                 onChange={() => setTarget('sms')}
-                className="text-cyan-600"
+                className="text-brand-500"
               />
               SMS only (policy, objects, rules, NAT)
             </label>
@@ -74,7 +74,7 @@ export default function ExportPage() {
                 name="target"
                 checked={target === 'gateway'}
                 onChange={() => setTarget('gateway')}
-                className="text-cyan-600"
+                className="text-brand-500"
               />
               Gateway only (Gaia clish: interfaces, routes)
             </label>
@@ -84,7 +84,7 @@ export default function ExportPage() {
                 name="target"
                 checked={target === 'both'}
                 onChange={() => setTarget('both')}
-                className="text-cyan-600"
+                className="text-brand-500"
               />
               Both (SMS + Gateway)
             </label>
@@ -101,7 +101,7 @@ export default function ExportPage() {
                   name="smsFormat"
                   checked={smsFormat === 'mgmt-api'}
                   onChange={() => setSmsFormat('mgmt-api')}
-                  className="text-cyan-600"
+                  className="text-brand-500"
                 />
                 Mgmt API ops (JSON, automation-friendly)
               </label>
@@ -111,7 +111,7 @@ export default function ExportPage() {
                   name="smsFormat"
                   checked={smsFormat === 'smartconsole'}
                   onChange={() => setSmsFormat('smartconsole')}
-                  className="text-cyan-600"
+                  className="text-brand-500"
                 />
                 SmartConsole import (CSV, GUI-friendly)
               </label>
@@ -121,7 +121,7 @@ export default function ExportPage() {
                   name="smsFormat"
                   checked={smsFormat === 'both'}
                   onChange={() => setSmsFormat('both')}
-                  className="text-cyan-600"
+                  className="text-brand-500"
                 />
                 Both formats
               </label>
@@ -138,7 +138,7 @@ export default function ExportPage() {
         <button
           onClick={handleExport}
           disabled={loading}
-          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+          className="px-4 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg"
         >
           {loading ? 'Preparing…' : 'Download'}
         </button>

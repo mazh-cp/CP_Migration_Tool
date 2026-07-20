@@ -145,8 +145,10 @@ sudo -u "$SERVICE_USER" npx prisma generate
 sudo -u "$SERVICE_USER" npx prisma db push --accept-data-loss
 cd "$APP_DIR"
 
-echo "==> Building application..."
-sudo -u "$SERVICE_USER" npm run build
+# Next/turbo build can exceed default V8 heap on small VMs (aligns with CI).
+NODE_BUILD_OPTS="${NODE_OPTIONS:---max-old-space-size=6144}"
+echo "==> Building application (NODE_OPTIONS=$NODE_BUILD_OPTS)..."
+sudo -u "$SERVICE_USER" env NODE_OPTIONS="$NODE_BUILD_OPTS" npm run build
 
 HEALTH_PORT="$(derive_port_for_health)"
 

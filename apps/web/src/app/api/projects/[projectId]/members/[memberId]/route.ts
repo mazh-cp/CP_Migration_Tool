@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireProjectAccess, canManageMembers } from '@/lib/project-access';
+import { assertTenantAdminCanManageUser } from '@/lib/platform-user-guard';
 
 export async function PATCH(
   req: Request,
@@ -14,6 +15,16 @@ export async function PATCH(
   const body = (await req.json()) as { role?: string };
   if (!body.role || !['owner', 'admin', 'editor', 'viewer'].includes(body.role)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+  }
+
+  const existingMember = await prisma.projectMember.findFirst({
+    where: { id: memberId, projectId, project: { tenantId: auth.session.tenantId } },
+    include: { user: { select: { id: true } } },
+  });
+  if (!existingMember) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const guard = await assertTenantAdminCanManageUser(auth.session, existingMember.userId);
+  if (!guard.ok) {
+    return NextResponse.json({ error: guard.error }, { status: guard.status });
   }
 
   const member = await prisma.projectMember.updateMany({
@@ -45,6 +56,16 @@ export async function DELETE(
   const auth = await requireProjectAccess(projectId);
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   if (!canManageMembers(auth.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  const toRemove = await prisma.projectMember.findFirst({
+    where: { id: memberId, projectId, project: { tenantId: auth.session.tenantId } },
+    include: { user: { select: { id: true } } },
+  });
+  if (!toRemove) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const guard = await assertTenantAdminCanManageUser(auth.session, toRemove.userId);
+  if (!guard.ok) {
+    return NextResponse.json({ error: guard.error }, { status: guard.status });
+  }
 
   const result = await prisma.projectMember.deleteMany({
     where: {

@@ -130,7 +130,29 @@ Or use the single-command Ubuntu installer (run on VM):
 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/install_azure_ubuntu.sh | sudo bash
 ```
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) and [REMOTE_INSTALL.md](REMOTE_INSTALL.md) for details.
+### Production VM upgrade (curl)
+
+Run **on the Ubuntu server** (SSH session on the VM). `sudo` does not keep `BRANCH=…` from the left side of the pipe—use `bash -s -- <tag>` or `sudo env BRANCH=…` as below.
+
+**Pinned release (recommended):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo env BRANCH=v1.5.3 DOC_RELEASE_TAG=v1.5.3 bash
+```
+
+**Latest `main`:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo env BRANCH=main DOC_RELEASE_TAG=main bash
+```
+
+**Alternate pinned form** (`bash -s` passes the ref into the wrapper):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo bash -s -- v1.5.3
+```
+
+Full options, laptop one-liner via SSH, and troubleshooting: [deploy/UPGRADE.md](deploy/UPGRADE.md), [REMOTE_INSTALL.md](REMOTE_INSTALL.md), [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -140,7 +162,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) and [REMOTE_INSTALL.md](REMOTE_INSTALL.md) fo
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | SQLite path (e.g. `file:./data/dev.db`) |
 | `AUTH_USERNAME` | Yes* | Admin login username |
-| `AUTH_PASSWORD` | Yes* | Admin login password |
+| `AUTH_PASSWORD` | Yes* | Admin login password (bootstrap only; ignored after admin sets a password in-app) |
 | `SESSION_SECRET` | Yes (prod) | JWT secret, min 32 characters |
 | `CONFIG_PIN` | No | PIN to protect Settings |
 | `SSO_PARTNER_SECRET` | No | Shared secret for URL-based SSO redirects (min 16 chars); when set, `sig` and `ts` are required |
@@ -180,8 +202,12 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) and [REMOTE_INSTALL.md](REMOTE_INSTALL.md) fo
 - Secrets (passwords, keys, SNMP) redacted in exports and logs
 - HTTPS recommended in production (secure cookie when `NODE_ENV=production`)
 - RBAC: project-level roles (owner, admin, editor, viewer)
+- **Password policy** — all in-app passwords (self-service change, admin-created users, admin resets) must be 12–72 characters with at least one uppercase, lowercase, digit, and special character, must not contain the username, and are checked against a common-password denylist. Enforced server-side in [`password-policy.ts`](apps/web/src/lib/password-policy.ts); the Settings UI shows a live checklist. Changing a password revokes the account's other active sessions and writes an audit entry (`password.change` / `password.reset`).
+- **`AUTH_PASSWORD` is bootstrap-only** — the env admin credentials seed the first login. Once that admin changes their password in **Settings → My profile**, `AUTH_PASSWORD` is no longer accepted for login. Remove `AUTH_PASSWORD` from `.env` after first login.
 
 See [SECURITY.md](SECURITY.md) for details.
+
+> **Schema note:** this adds `User.passwordChangedByUser`. After pulling, run `cd apps/web && npx prisma generate && npx prisma db push` (additive column, non-destructive).
 
 ---
 
@@ -203,7 +229,8 @@ See [SECURITY.md](SECURITY.md) for details.
 ## Known Limitations
 
 - Reports page is placeholder
-- VPN, routing protocols, complex object-group nesting not supported
+- Routing protocols and complex object-group nesting not supported
+- ASA VPN (remote-access + site-to-site) is parsed and exported as **review notes** (`vpn.notes`) at the library layer — pre-shared keys are never captured; Check Point VPN communities still require manual recreation. Web-export/UI wiring for the notes is pending.
 - SQLite for dev/single-node; use PostgreSQL for production scale
 - FTD JSON schema support is limited
 

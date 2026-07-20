@@ -87,11 +87,37 @@ export interface NormalizedNATRule {
   sourceLines?: number[];
 }
 
+/**
+ * VPN is captured as review notes, not converted rules — Check Point VPN
+ * communities require manual recreation. `pskConfigured` records only that a
+ * key was present; the key value is never stored.
+ */
+export interface NormalizedRemoteAccessVpn {
+  poolName?: string;
+  poolRange?: string;
+  splitTunnelList?: string;
+  protocols: string[];
+}
+
+export interface NormalizedSiteToSiteVpn {
+  name: string;
+  peer?: string;
+  matchAcl?: string;
+  pskConfigured?: boolean;
+}
+
+export interface NormalizedVpn {
+  remoteAccess: NormalizedRemoteAccessVpn[];
+  siteToSite: NormalizedSiteToSiteVpn[];
+}
+
 export interface NormalizedResult {
   objects: NormalizedObject[];
   rules: NormalizedPolicyRule[];
   nat: NormalizedNATRule[];
   interfaces: NormalizedInterface[];
   zones: NormalizedZone[];
+  /** Present only when the source defined VPN (ASA remote-access / site-to-site). */
+  vpn?: NormalizedVpn;
   warnings: string[];
 }

@@ -43,6 +43,10 @@ export async function requireProjectAccess(
   if (!projectRow || !projectRow.tenantId) return null;
   const support = await requireSupportModeForTenant(projectRow.tenantId);
   if (!support) return null;
+  const supportUser = await prisma.user.findUnique({
+    where: { id: support.userId },
+    select: { isPlatformAdmin: true },
+  });
   const tenantSession: TenantSession = {
     userId: support.userId,
     tenantId: support.supportTargetTenantId,
@@ -50,6 +54,7 @@ export async function requireProjectAccess(
     role: 'admin',
     username: support.username,
     email: null,
+    isPlatformAdmin: supportUser?.isPlatformAdmin ?? true,
   };
   return {
     session: tenantSession,

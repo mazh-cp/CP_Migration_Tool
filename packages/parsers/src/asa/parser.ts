@@ -9,6 +9,10 @@ import type {
   NatStatement,
   InterfaceStatement,
   NameIfStatement,
+  IpLocalPoolStatement,
+  GroupPolicyStatement,
+  TunnelGroupStatement,
+  CryptoMapStatement,
 } from './ast';
 
 export function parseASA(content: string): ASAParseResult {
@@ -94,8 +98,122 @@ function parseLine(lines: string[], startIdx: number, line: string): ParseLineRe
     const obj = parseNameIf(line, startIdx + 1);
     if (obj) return { statement: obj, consumed: 1 };
   }
+  if (cmd === 'ip' && parts[1]?.toLowerCase() === 'local' && parts[2]?.toLowerCase() === 'pool') {
+    const obj = parseIpLocalPool(line, startIdx + 1);
+    if (obj) return { statement: obj, consumed: 1 };
+  }
+  if (cmd === 'group-policy') {
+    return parseGroupPolicy(lines, startIdx);
+  }
+  if (cmd === 'tunnel-group') {
+    return parseTunnelGroup(lines, startIdx);
+  }
+  if (cmd === 'crypto' && parts[1]?.toLowerCase() === 'map') {
+    const obj = parseCryptoMap(line, startIdx + 1);
+    if (obj) return { statement: obj, consumed: 1 };
+    return { consumed: 1 };
+  }
 
   throw new Error('Unsupported');
+}
+
+/** Number of following lines that are indented attributes of a block command. */
+function countIndentedBlockLines(lines: string[], startIdx: number): number {
+  let i = startIdx + 1;
+  while (i < lines.length) {
+    const raw = lines[i];
+    if (raw.trim() === '') break;
+    // ASA indents sub-commands under group-policy / tunnel-group.
+    if (!/^\s/.test(raw)) break;
+    i++;
+  }
+  return i - (startIdx + 1);
+}
+
+function parseIpLocalPool(line: string, ln: number): IpLocalPoolStatement | null {
+  const m = line.match(/ip\s+local\s+pool\s+(\S+)\s+(\S+)(?:\s+mask\s+(\S+))?/i);
+  if (!m) return null;
+  return { type: 'ip-local-pool', name: m[1], range: m[2], mask: m[3], raw: line, lineNumber: ln };
+}
+
+function parseGroupPolicy(lines: string[], startIdx: number): ParseLineResult {
+  const first = lines[startIdx];
+  const m = first.match(/group-policy\s+(\S+)\s+(internal|attributes|external)/i);
+  if (!m) return { consumed: 1 };
+  const obj: GroupPolicyStatement = {
+    type: 'group-policy',
+    name: m[1],
+    raw: first,
+    lineNumber: startIdx + 1,
+  };
+  const bodyCount = countIndentedBlockLines(lines, startIdx);
+  for (let i = startIdx + 1; i <= startIdx + bodyCount; i++) {
+    const t = lines[i].trim();
+    if (/^vpn-tunnel-protocol\s+/i.test(t)) {
+      obj.vpnTunnelProtocol = t.replace(/^vpn-tunnel-protocol\s+/i, '').split(/\s+/);
+    } else if (/^split-tunnel-network-list\s+/i.test(t)) {
+      const v = t.match(/value\s+(\S+)/i);
+      if (v) obj.splitTunnelList = v[1];
+    }
+  }
+  return { statement: obj, consumed: 1 + bodyCount };
+}
+
+function parseTunnelGroup(lines: string[], startIdx: number): ParseLineResult {
+  const first = lines[startIdx];
+  const nameMatch = first.match(/tunnel-group\s+(\S+)\s+/i);
+  if (!nameMatch) return { consumed: 1 };
+  const name = nameMatch[1];
+
+  const typeMatch = first.match(/tunnel-group\s+\S+\s+type\s+(remote-access|ipsec-l2l)/i);
+  // The `type` line has no indented body; attributes live in separate blocks.
+  if (typeMatch) {
+    return {
+      statement: {
+        type: 'tunnel-group',
+        name,
+        tunnelType: typeMatch[1].toLowerCase().includes('remote') ? 'remote-access' : 'ipsec-l2l',
+        raw: first,
+        lineNumber: startIdx + 1,
+      },
+      consumed: 1,
+    };
+  }
+
+  // `tunnel-group NAME general-attributes | ipsec-attributes | webvpn-attributes` block.
+  const attrMatch = first.match(/tunnel-group\s+\S+\s+(general-attributes|ipsec-attributes|webvpn-attributes)/i);
+  if (!attrMatch) return { consumed: 1 };
+  const bodyCount = countIndentedBlockLines(lines, startIdx);
+  const obj: TunnelGroupStatement = { type: 'tunnel-group', name, raw: first, lineNumber: startIdx + 1 };
+  let hasField = false;
+  for (let i = startIdx + 1; i <= startIdx + bodyCount; i++) {
+    const t = lines[i].trim();
+    if (/^address-pool\s+/i.test(t)) {
+      obj.addressPool = t.replace(/^address-pool\s+/i, '').trim();
+      hasField = true;
+    } else if (/^default-group-policy\s+/i.test(t)) {
+      obj.defaultGroupPolicy = t.replace(/^default-group-policy\s+/i, '').trim();
+      hasField = true;
+    } else if (/pre-shared-key|ikev1 pre-shared-key|ikev2 (local|remote)-authentication pre-shared-key/i.test(t)) {
+      obj.pskConfigured = true;
+      hasField = true;
+    }
+  }
+  // Emit a fragment only if it carried a field we care about; still consume the block.
+  return hasField ? { statement: obj, consumed: 1 + bodyCount } : { consumed: 1 + bodyCount };
+}
+
+function parseCryptoMap(line: string, ln: number): CryptoMapStatement | null {
+  const seqMatch = line.match(/crypto\s+map\s+(\S+)\s+(\d+)\s+match\s+address\s+(\S+)/i);
+  if (seqMatch)
+    return { type: 'crypto-map', name: seqMatch[1], seq: parseInt(seqMatch[2], 10), matchAcl: seqMatch[3], raw: line, lineNumber: ln };
+  const peerMatch = line.match(/crypto\s+map\s+(\S+)\s+(\d+)\s+set\s+peer\s+(\S+)/i);
+  if (peerMatch)
+    return { type: 'crypto-map', name: peerMatch[1], seq: parseInt(peerMatch[2], 10), peer: peerMatch[3], raw: line, lineNumber: ln };
+  const ifaceMatch = line.match(/crypto\s+map\s+(\S+)\s+interface\s+(\S+)/i);
+  if (ifaceMatch)
+    return { type: 'crypto-map', name: ifaceMatch[1], seq: 0, ifaceName: ifaceMatch[2], raw: line, lineNumber: ln };
+  return null;
 }
 
 function parseObjectNetwork(lines: string[], startIdx: number): { obj: ObjectNetwork | null; consumed: number } {

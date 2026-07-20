@@ -13,6 +13,30 @@ import type { MappingDecision } from '@cisco2cp/core';
 type ExportTarget = 'sms' | 'gateway' | 'both';
 type SmsFormat = 'mgmt-api' | 'smartconsole' | 'both';
 
+async function markExportCompleted(projectId: string, tenantId: string) {
+  const row = await prisma.project.findFirst({
+    where: { id: projectId, tenantId },
+    select: { completedSteps: true },
+  });
+  let steps: string[] = [];
+  if (row?.completedSteps) {
+    try {
+      steps = JSON.parse(row.completedSteps);
+    } catch {
+      steps = [];
+    }
+  }
+  if (!steps.includes('export')) steps.push('export');
+  await prisma.project.updateMany({
+    where: { id: projectId, tenantId },
+    data: {
+      status: 'exported',
+      currentStep: 'export',
+      completedSteps: JSON.stringify(steps),
+    },
+  });
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ projectId: string }> }
@@ -121,6 +145,7 @@ export async function POST(
       zip.file('gateway/gaia_clish.txt', gaia);
     }
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/zip' });
+    await markExportCompleted(projectId, tenantId);
     return new NextResponse(blob, {
       headers: {
         'Content-Type': 'application/zip',
@@ -137,6 +162,7 @@ export async function POST(
       cpMaskOverride: m.cpMaskOverride ?? undefined,
     }));
     const gaia = exportToGaiaClish(normalized, mappings);
+    await markExportCompleted(projectId, tenantId);
     return new NextResponse(gaia, {
       headers: {
         'Content-Type': 'text/plain',
@@ -154,6 +180,7 @@ export async function POST(
     zip.file('policy.csv', csv.policy);
     zip.file('nat.csv', csv.nat);
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/zip' });
+    await markExportCompleted(projectId, tenantId);
     return new NextResponse(blob, {
       headers: {
         'Content-Type': 'application/zip',
@@ -162,6 +189,7 @@ export async function POST(
     });
   }
 
+  await markExportCompleted(projectId, tenantId);
   return NextResponse.json(bundle, {
     headers: {
       'Content-Disposition': `attachment; filename="checkpoint-${projectId}.json"`,

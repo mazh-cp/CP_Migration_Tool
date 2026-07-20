@@ -2,6 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ShieldCheck } from 'lucide-react';
+import { Button, Input, Field } from '@cisco2cp/ui';
 
 function LoginForm() {
   const router = useRouter();
@@ -42,45 +44,43 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-      <div className="w-full max-w-sm p-6 bg-slate-800 rounded-xl border border-slate-700 shadow-xl">
-        <h1 className="text-2xl font-bold text-center mb-2">Migrator</h1>
-        <p className="text-slate-400 text-sm text-center mb-6">
-          Sign in to continue
-        </p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500"
-              required
-              autoComplete="username"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500"
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          {error && (
-            <p className="text-red-400 text-sm">{error}</p>
-          )}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg font-medium"
-          >
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
+      <div className="w-full max-w-sm animate-fade-in">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500 text-white shadow-brand">
+            <ShieldCheck className="h-7 w-7" aria-hidden />
+          </span>
+          <h1 className="text-xl font-semibold tracking-tight text-white">Check Point Migration Tool</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            Convert Cisco and Fortinet configurations to Check Point.
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-6 shadow-card">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Field label="Username" htmlFor="username">
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoComplete="username"
+              />
+            </Field>
+            <Field label="Password" htmlFor="password" error={error || undefined}>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </Field>
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -90,7 +90,7 @@ export default function LoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-        <div className="w-full max-w-sm p-6 bg-slate-800 rounded-xl border border-slate-700 animate-pulse">Loading...</div>
+        <div className="h-64 w-full max-w-sm animate-pulse rounded-xl border border-slate-700 bg-slate-800/60" />
       </div>
     }>
       <LoginForm />

@@ -31,6 +31,10 @@ model User {
   username                 String   @unique
   email                    String?  @unique
   passwordHash             String
+  // True once the user sets their own password in-app; disables env AUTH_PASSWORD override for this account.
+  passwordChangedByUser    Boolean  @default(false)
+  // Timestamp of the last password change/reset; JWTs issued before this are rejected.
+  passwordChangedAt        DateTime?
   isInternalSupportIdentity Boolean  @default(false)
   isPlatformAdmin          Boolean  @default(false)
   ssoExternalId            String?

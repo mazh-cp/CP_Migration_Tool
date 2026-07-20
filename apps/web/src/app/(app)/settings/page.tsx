@@ -2,9 +2,34 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, UserPlus, Trash2, ChevronDown, ChevronRight, KeyRound } from 'lucide-react';
+import { Users, UserPlus, Trash2, ChevronDown, ChevronRight, KeyRound, UserCircle, Check, X } from 'lucide-react';
+import { PageHeader } from '@cisco2cp/ui';
+import { evaluatePassword, isPasswordAcceptable } from '@/lib/password-policy';
 
 type TenantRole = 'admin' | 'member' | 'viewer';
+
+/** Live password-requirement checklist, driven by the shared policy module. */
+function PasswordChecklist({ password, username }: { password: string; username?: string }) {
+  if (!password) return null;
+  const items = evaluatePassword(password, { username });
+  return (
+    <ul className="mt-2 space-y-1" aria-label="Password requirements">
+      {items.map((item) => (
+        <li
+          key={item.id}
+          className={`flex items-center gap-2 text-xs ${item.met ? 'text-success' : 'text-slate-400'}`}
+        >
+          {item.met ? (
+            <Check className="w-3.5 h-3.5 shrink-0" aria-hidden />
+          ) : (
+            <X className="w-3.5 h-3.5 shrink-0" aria-hidden />
+          )}
+          <span>{item.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 interface User {
   id: string;
@@ -55,6 +80,16 @@ export default function SettingsPage() {
   const [addMemberRole, setAddMemberRole] = useState<'admin' | 'editor' | 'viewer'>('editor');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [canManageAppConfig, setCanManageAppConfig] = useState(false);
+  const [profileUsername, setProfileUsername] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
+  const [profileNewPassword, setProfileNewPassword] = useState('');
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileError, setProfileError] = useState('');
   const [roleUpdating, setRoleUpdating] = useState<string | null>(null);
 
   // SSO
@@ -70,27 +105,33 @@ export default function SettingsPage() {
   const [ssoError, setSsoError] = useState('');
 
   useEffect(() => {
-    fetch('/api/config')
-      .then((r) => r.json())
-      .then((d) => {
-        setConfigUnlocked(d.configUnlocked);
-        setPinRequired(d.pinRequired);
+    let cancelled = false;
+    (async () => {
+      const [cRes, mRes] = await Promise.all([fetch('/api/config'), fetch('/api/me')]);
+      const d = cRes.ok ? await cRes.json() : {};
+      const me = mRes.ok ? await mRes.json() : {};
+      if (cancelled) return;
+      setIsAdmin(me.isAdmin ?? false);
+      setIsPlatformAdmin(me.isPlatformAdmin ?? false);
+      setProfileUsername(me.username ?? '');
+      setProfileEmail(me.email ?? '');
+      setPinRequired(!!d.pinRequired);
+      setConfigUnlocked(!!d.configUnlocked);
+      setCanManageAppConfig(!!d.canManageAppConfig);
+      if (d.canManageAppConfig) {
         setModelFetchMethod(d.modelFetchMethod || 'default');
         setLitellmBaseUrl(d.litellmBaseUrl || '');
         setLitellmModel(d.litellmModel || 'gpt-4');
         setApiKeyConfigured(d.apiKeyConfigured ?? false);
-        setAiValidationEnabled(!!d.aiValidationEnabled);
-        setAiValidationOutboundEnabled(!!d.aiValidationOutboundEnabled);
-        setOpenAiApiKeyConfigured(!!d.openAiApiKeyConfigured);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    fetch('/api/me')
-      .then((r) => (r.ok ? r.json() : Promise.resolve({ isAdmin: false })))
-      .then((d: { isAdmin?: boolean }) => setIsAdmin(d.isAdmin ?? false))
-      .catch(() => setIsAdmin(false));
+      }
+      setAiValidationEnabled(!!d.aiValidationEnabled);
+      setAiValidationOutboundEnabled(!!d.aiValidationOutboundEnabled);
+      setOpenAiApiKeyConfigured(!!d.openAiApiKeyConfigured);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -136,6 +177,10 @@ export default function SettingsPage() {
     setAddUserError('');
     if (!newUsername.trim() || !newPassword) {
       setAddUserError('Username and password required');
+      return;
+    }
+    if (!isPasswordAcceptable(newPassword, { username: newUsername.trim() })) {
+      setAddUserError('Password does not meet the complexity requirements shown below');
       return;
     }
     const payload: { username: string; password: string; email?: string } = {
@@ -243,6 +288,50 @@ export default function SettingsPage() {
     }
   }
 
+  async function saveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setProfileError('');
+    setProfileMessage('');
+    if (profileNewPassword && profileNewPassword !== profileConfirmPassword) {
+      setProfileError('New passwords do not match');
+      return;
+    }
+    if (profileNewPassword && !profileCurrentPassword) {
+      setProfileError('Enter your current password to set a new password');
+      return;
+    }
+    if (profileNewPassword && !isPasswordAcceptable(profileNewPassword, { username: profileUsername })) {
+      setProfileError('New password does not meet the complexity requirements below');
+      return;
+    }
+
+    setProfileSaving(true);
+    try {
+      const res = await fetch('/api/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: profileEmail.trim(),
+          ...(profileNewPassword
+            ? { currentPassword: profileCurrentPassword, newPassword: profileNewPassword }
+            : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setProfileError(data.error || 'Failed to save profile');
+        return;
+      }
+      setProfileMessage('Profile saved');
+      setProfileCurrentPassword('');
+      setProfileNewPassword('');
+      setProfileConfirmPassword('');
+      if (data.email !== undefined) setProfileEmail(data.email ?? '');
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
   async function verifyPin() {
     setPinError('');
     const res = await fetch('/api/auth/verify-pin', {
@@ -284,58 +373,134 @@ export default function SettingsPage() {
     }
   }
 
-  if (loading) return <div className="animate-pulse h-32">Loading...</div>;
-
-  if (pinRequired && !configUnlocked) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold mb-6">Settings</h1>
-        <p className="text-slate-400 mb-4">
-          Configuration is protected. Enter your PIN to unlock.
-        </p>
-        <div className="flex gap-2 max-w-xs">
-          <input
-            type="password"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="PIN"
-            className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg"
-            onKeyDown={(e) => e.key === 'Enter' && verifyPin()}
-          />
-          <button
-            onClick={verifyPin}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg"
-          >
-            Unlock
-          </button>
-        </div>
-        {pinError && <p className="text-red-400 text-sm mt-2">{pinError}</p>}
-      </div>
-    );
-  }
+  if (loading) return <div className="h-32 animate-pulse rounded-xl bg-slate-800/60" />;
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+    <div className="animate-fade-in">
+      <PageHeader title="Settings" description="Manage your profile, users and roles, and application configuration." />
 
       <div className="space-y-6 max-w-xl">
-        <div>
-          <h2 className="text-lg font-medium mb-3">Model Fetch Method</h2>
-          <p className="text-slate-400 text-sm mb-3">
-            Choose how to fetch AI model responses. LiteLLM allows using a local or proxy endpoint.
+        <div className="pb-6 border-b border-slate-700">
+          <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
+            <UserCircle className="w-5 h-5 text-brand-300" />
+            My profile
+          </h2>
+          <p className="text-slate-400 text-sm mb-4">
+            Your sign-in identity and password apply only to your account. Application-wide AI configuration is separate and managed by the platform administrator.
           </p>
-          <select
-            value={modelFetchMethod}
-            onChange={(e) => setModelFetchMethod(e.target.value as 'default' | 'litellm')}
-            className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg"
-          >
-            <option value="default">Default (OpenAI-compatible direct)</option>
-            <option value="litellm">LiteLLM proxy</option>
-          </select>
+          <form onSubmit={saveProfile} className="space-y-4">
+            <div>
+              <label className="block text-sm text-slate-300 mb-1">Username</label>
+              <input
+                type="text"
+                value={profileUsername}
+                readOnly
+                className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-slate-400 cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-300 mb-1">Email (optional)</label>
+              <input
+                type="email"
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg"
+              />
+              <p className="text-xs text-slate-500 mt-1">Clear the field and save to remove your email.</p>
+            </div>
+            <div className="pt-2 border-t border-slate-700/80 space-y-3">
+              <p className="text-sm text-slate-400">Change password (optional)</p>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Current password</label>
+                <input
+                  type="password"
+                  value={profileCurrentPassword}
+                  onChange={(e) => setProfileCurrentPassword(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg"
+                  autoComplete="current-password"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">New password</label>
+                <input
+                  type="password"
+                  value={profileNewPassword}
+                  onChange={(e) => setProfileNewPassword(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg"
+                  autoComplete="new-password"
+                />
+                <PasswordChecklist password={profileNewPassword} username={profileUsername} />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Confirm new password</label>
+                <input
+                  type="password"
+                  value={profileConfirmPassword}
+                  onChange={(e) => setProfileConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            {profileError && <p className="text-danger text-sm">{profileError}</p>}
+            {profileMessage && <p className="text-success text-sm">{profileMessage}</p>}
+            <button
+              type="submit"
+              disabled={profileSaving}
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg text-sm"
+            >
+              {profileSaving ? 'Saving…' : 'Save profile'}
+            </button>
+          </form>
         </div>
 
-        {modelFetchMethod === 'litellm' && (
-          <div className="space-y-3 pl-4 border-l-2 border-cyan-500/30">
+        {canManageAppConfig && (
+          <>
+            {pinRequired && !configUnlocked ? (
+              <div className="p-4 border border-amber-500/40 rounded-lg bg-amber-950/20 space-y-3">
+                <h2 className="text-lg font-medium">Application configuration</h2>
+                <p className="text-slate-400 text-sm">
+                  Enter the configuration PIN to edit model fetch and LiteLLM settings. You can still use <strong className="text-slate-300">My profile</strong> above without unlocking.
+                </p>
+                <div className="flex flex-wrap gap-2 max-w-md">
+                  <input
+                    type="password"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    placeholder="PIN"
+                    className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg"
+                    onKeyDown={(e) => e.key === 'Enter' && verifyPin()}
+                  />
+                  <button
+                    type="button"
+                    onClick={verifyPin}
+                    className="px-4 py-2 bg-brand-500 hover:bg-brand-400 rounded-lg"
+                  >
+                    Unlock
+                  </button>
+                </div>
+                {pinError && <p className="text-danger text-sm">{pinError}</p>}
+              </div>
+            ) : (
+              <>
+            <div>
+              <h2 className="text-lg font-medium mb-3">Model Fetch Method</h2>
+              <p className="text-slate-400 text-sm mb-3">
+                Choose how to fetch AI model responses. LiteLLM allows using a local or proxy endpoint.
+              </p>
+              <select
+                value={modelFetchMethod}
+                onChange={(e) => setModelFetchMethod(e.target.value as 'default' | 'litellm')}
+                className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg"
+              >
+                <option value="default">Default (OpenAI-compatible direct)</option>
+                <option value="litellm">LiteLLM proxy</option>
+              </select>
+            </div>
+
+            {modelFetchMethod === 'litellm' && (
+          <div className="space-y-3 pl-4 border-l-2 border-brand-400/30">
             <div>
               <label className="block text-sm text-slate-300 mb-1">LiteLLM Base URL</label>
               <input
@@ -371,12 +536,22 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
+            )}
+
+            {pinRequired && (
+              <p className="text-slate-500 text-sm">
+                Configuration protected by PIN. Set CONFIG_PIN in .env to require PIN for settings.
+              </p>
+            )}
+              </>
+            )}
+          </>
         )}
 
-        {pinRequired && (
-          <p className="text-slate-500 text-sm">
-            Configuration protected by PIN. Set CONFIG_PIN in .env to require PIN for settings.
-          </p>
+        {!canManageAppConfig && (
+          <div className="p-4 bg-slate-800/40 border border-slate-700 rounded-lg text-sm text-slate-400">
+            Application AI configuration (model fetch, LiteLLM) is managed by the <strong className="text-slate-300">platform administrator</strong> account only.
+          </div>
         )}
 
         <div className="pt-6 border-t border-slate-700">
@@ -392,7 +567,7 @@ export default function SettingsPage() {
                 checked={aiValidationEnabled}
                 onChange={(e) => setAiValidationEnabled(e.target.checked)}
                 disabled
-                className="rounded border-slate-600 bg-slate-800 text-cyan-500 disabled:opacity-80"
+                className="rounded border-slate-600 bg-slate-800 text-brand-400 disabled:opacity-80"
               />
             </label>
             <label className="flex items-center justify-between gap-3 p-3 bg-slate-800/40 border border-slate-700 rounded-lg">
@@ -402,7 +577,7 @@ export default function SettingsPage() {
                 checked={aiValidationOutboundEnabled}
                 onChange={(e) => setAiValidationOutboundEnabled(e.target.checked)}
                 disabled
-                className="rounded border-slate-600 bg-slate-800 text-cyan-500 disabled:opacity-80"
+                className="rounded border-slate-600 bg-slate-800 text-brand-400 disabled:opacity-80"
               />
             </label>
             <div className="text-xs text-slate-500">
@@ -418,12 +593,17 @@ export default function SettingsPage() {
 
         <div className="pt-8 border-t border-slate-700">
           <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
-            <Users className="w-5 h-5 text-cyan-400" />
+            <Users className="w-5 h-5 text-brand-300" />
             Users & Roles
           </h2>
           <p className="text-slate-400 text-sm mb-4">
             Add users and set tenant roles. <strong>Admin</strong> can manage users and settings; <strong>member</strong> and <strong>viewer</strong> have project access only. Each user has one primary tenant.
           </p>
+          {isAdmin && !isPlatformAdmin && (
+            <p className="text-slate-500 text-xs mb-3 border border-slate-600/60 rounded-lg px-3 py-2 bg-slate-800/30">
+              The <strong className="text-slate-400">platform administrator</strong> account is not shown here and cannot be edited or assigned by tenant admins. Use <strong className="text-slate-400">My profile</strong> above for your own account only.
+            </p>
+          )}
 
           {!isAdmin && (
             <p className="text-amber-400/80 text-sm py-2">You must be logged in as a tenant admin to manage users and roles.</p>
@@ -449,9 +629,10 @@ export default function SettingsPage() {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="min 6 chars"
+                    placeholder="min 12 chars, mixed"
                     className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm"
                   />
+                  <PasswordChecklist password={newPassword} username={newUsername} />
                 </div>
                 <div>
                   <label className="block text-xs text-slate-500 mb-1">Email (optional)</label>
@@ -463,12 +644,12 @@ export default function SettingsPage() {
                     className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm"
                   />
                 </div>
-                <button type="submit" className="flex items-center gap-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm">
+                <button type="submit" className="flex items-center gap-1 px-4 py-2 bg-brand-500 hover:bg-brand-400 rounded-lg text-sm">
                   <UserPlus className="w-4 h-4" />
                   Add User
                 </button>
               </form>
-              {addUserError && <p className="text-red-400 text-sm mt-1">{addUserError}</p>}
+              {addUserError && <p className="text-danger text-sm mt-1">{addUserError}</p>}
             </div>}
 
             {isAdmin && <div>
@@ -491,7 +672,7 @@ export default function SettingsPage() {
                           <td className="px-4 py-2">
                             <span className="font-medium">{u.username}</span>
                             {u.isPrimary && (
-                              <span className="ml-2 text-xs text-cyan-400" title="Primary tenant">●</span>
+                              <span className="ml-2 text-xs text-brand-300" title="Primary tenant">●</span>
                             )}
                           </td>
                           <td className="px-4 py-2 text-slate-400">{u.email || '—'}</td>
@@ -566,7 +747,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => handleAddMember(p.id)}
                             disabled={addMemberProject !== p.id || !addMemberUserId}
-                            className="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg text-sm"
+                            className="px-3 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg text-sm"
                           >
                             Add
                           </button>
@@ -580,7 +761,7 @@ export default function SettingsPage() {
                                 {isAdmin && (
                                   <button
                                     onClick={() => handleRemoveMember(p.id, m.id)}
-                                    className="text-red-400 hover:text-red-300 p-1"
+                                    className="text-danger hover:text-red-300 p-1"
                                     title="Remove"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -601,7 +782,7 @@ export default function SettingsPage() {
             {isAdmin && (
               <div className="pt-6 border-t border-slate-700">
                 <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
-                  <KeyRound className="w-5 h-5 text-cyan-400" />
+                  <KeyRound className="w-5 h-5 text-brand-300" />
                   Single sign-on (SSO)
                 </h2>
                 <p className="text-slate-400 text-sm mb-4">
@@ -613,7 +794,7 @@ export default function SettingsPage() {
                       type="checkbox"
                       checked={ssoEnabled}
                       onChange={(e) => setSsoEnabled(e.target.checked)}
-                      className="rounded border-slate-600 bg-slate-800 text-cyan-500"
+                      className="rounded border-slate-600 bg-slate-800 text-brand-400"
                     />
                     <span className="text-sm">Enable SSO for this tenant</span>
                   </label>
@@ -703,11 +884,11 @@ export default function SettingsPage() {
                         type="button"
                         onClick={handleSaveSso}
                         disabled={ssoSaving}
-                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg text-sm"
+                        className="px-4 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg text-sm"
                       >
                         {ssoSaving ? 'Saving...' : 'Save SSO settings'}
                       </button>
-                      {ssoError && <p className="text-red-400 text-sm">{ssoError}</p>}
+                      {ssoError && <p className="text-danger text-sm">{ssoError}</p>}
                     </>
                   )}
                 </div>
@@ -718,13 +899,15 @@ export default function SettingsPage() {
       </div>
 
       <div className="mt-6 flex gap-4">
-        <button
-          onClick={saveConfig}
-          disabled={saving}
-          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </button>
+        {canManageAppConfig && (
+          <button
+            onClick={saveConfig}
+            disabled={saving}
+            className="px-4 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg"
+          >
+            {saving ? 'Saving...' : 'Save application config'}
+          </button>
+        )}
         <Link href="/dashboard" className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600">
           Back
         </Link>

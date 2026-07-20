@@ -23,17 +23,17 @@ export default async function DocViewerPage({
   } catch {
     return (
       <div>
-        <Link href="/documentation" className="text-cyan-400 hover:underline mb-4 inline-block">
+        <Link href="/documentation" className="text-brand-300 hover:underline mb-4 inline-block">
           ← Back to Documentation
         </Link>
-        <p className="text-red-400">Document not found.</p>
+        <p className="text-danger">Document not found.</p>
       </div>
     );
   }
 
   return (
     <div>
-      <Link href="/documentation" className="text-cyan-400 hover:underline mb-6 inline-block">
+      <Link href="/documentation" className="text-brand-300 hover:underline mb-6 inline-block">
         ← Back to Documentation
       </Link>
       <pre className="p-6 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 text-sm whitespace-pre-wrap font-sans overflow-x-auto">

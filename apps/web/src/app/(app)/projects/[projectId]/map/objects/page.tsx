@@ -204,7 +204,7 @@ export default function MapObjectsPage() {
   return (
     <div>
       <nav className="text-sm text-slate-400 mb-6">
-        <Link href="/projects" className="hover:text-cyan-400">
+        <Link href="/projects" className="hover:text-brand-300">
           Projects
         </Link>
         <span className="mx-2">/</span>
@@ -264,7 +264,7 @@ export default function MapObjectsPage() {
                             ? 'text-green-400'
                             : m.confidenceScore >= 0.7
                               ? 'text-amber-400'
-                              : 'text-red-400'
+                              : 'text-danger'
                         }
                       >
                         {(m.confidenceScore * 100).toFixed(0)}%
@@ -275,7 +275,7 @@ export default function MapObjectsPage() {
                       <button
                         type="button"
                         onClick={() => openEdit(m)}
-                        className="text-cyan-400 hover:text-cyan-300 text-xs font-medium"
+                        className="text-brand-300 hover:text-brand-200 text-xs font-medium"
                       >
                         Edit
                       </button>
@@ -302,7 +302,7 @@ export default function MapObjectsPage() {
             <p className="text-sm text-slate-400 mb-4">
               Source: <span className="font-mono text-slate-300">{objMap.get(editRow.sourceId)?.name ?? editRow.sourceId}</span>
             </p>
-            {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
+            {error && <p className="text-sm text-danger mb-3">{error}</p>}
             <label className="block text-xs text-slate-500 mb-1">Check Point export name</label>
             <input
               className="w-full mb-4 px-3 py-2 rounded bg-slate-800 border border-slate-600 text-slate-100"
@@ -361,7 +361,7 @@ export default function MapObjectsPage() {
               <button
                 type="button"
                 onClick={() => void saveEdit()}
-                className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-400 disabled:opacity-50"
                 disabled={saving}
               >
                 {saving ? 'Saving…' : 'Save'}
@@ -374,7 +374,7 @@ export default function MapObjectsPage() {
       <div className="mt-6 flex gap-4">
         <Link
           href={`/projects/${projectId}/map/policy`}
-          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg"
+          className="px-4 py-2 bg-brand-500 hover:bg-brand-400 rounded-lg"
         >
           Next: Map Policy
         </Link>
