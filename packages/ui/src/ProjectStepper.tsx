@@ -41,7 +41,7 @@ export function ProjectStepper({
               className={clsx(
                 'px-2 py-0.5 rounded text-xs font-medium',
                 status === 'exported' && 'bg-green-500/20 text-green-400',
-                status === 'validated' && 'bg-cyan-500/20 text-cyan-400',
+                status === 'validated' && 'bg-brand-400/20 text-brand-300',
                 status === 'mapped' && 'bg-blue-500/20 text-blue-400',
                 status === 'parsed' && 'bg-amber-500/20 text-amber-400',
                 status === 'imported' && 'bg-slate-500/20 text-slate-400',
@@ -71,7 +71,7 @@ export function ProjectStepper({
               href={href}
               className={clsx(
                 'flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shrink-0',
-                isActive && 'bg-cyan-600 text-white',
+                isActive && 'bg-brand-500 text-white',
                 !isActive && isCompleted && 'bg-slate-700 text-slate-300 hover:bg-slate-600',
                 !isActive && !isCompleted && 'bg-slate-800 text-slate-500'
               )}

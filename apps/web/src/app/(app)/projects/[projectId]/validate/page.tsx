@@ -240,7 +240,7 @@ export default function ValidatePage() {
   return (
     <div>
       <nav className="text-sm text-slate-400 mb-6">
-        <Link href="/projects" className="hover:text-cyan-400">
+        <Link href="/projects" className="hover:text-brand-300">
           Projects
         </Link>
         <span className="mx-2">/</span>
@@ -252,8 +252,8 @@ export default function ValidatePage() {
         R82.x. Export is blocked until errors are resolved.
       </p>
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="p-4 bg-slate-800 rounded-lg border border-red-500/30">
-          <div className="text-2xl font-bold text-red-400">{errors.length}</div>
+        <div className="p-4 bg-slate-800 rounded-lg border border-danger/30">
+          <div className="text-2xl font-bold text-danger">{errors.length}</div>
           <div className="text-sm text-slate-400">Errors</div>
         </div>
         <div className="p-4 bg-slate-800 rounded-lg border border-amber-500/30">
@@ -267,16 +267,16 @@ export default function ValidatePage() {
       </div>
 
       {missingRefFindings.length > 0 && (
-        <div className="mb-6 p-4 bg-slate-800/50 rounded-lg border border-cyan-500/30">
+        <div className="mb-6 p-4 bg-slate-800/50 rounded-lg border border-brand-400/30">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium text-cyan-400">
+            <h3 className="font-medium text-brand-300">
               Missing object references ({missingRefFindings.length})
             </h3>
             <div className="flex gap-2">
               <button
                 onClick={() => fixAll('create_placeholder')}
                 disabled={fixAllPending}
-                className="px-3 py-1.5 text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+                className="px-3 py-1.5 text-sm bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg"
               >
                 {fixAllPending ? 'Fixing...' : 'Create placeholder for all'}
               </button>
@@ -298,7 +298,7 @@ export default function ValidatePage() {
             {missingRefFindings.map((f) => (
               <div
                 key={f.id}
-                className="p-4 rounded-lg border bg-red-500/10 border-red-500/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                className="p-4 rounded-lg border bg-danger/10 border-danger/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
               >
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm">{f.message}</div>
@@ -317,7 +317,7 @@ export default function ValidatePage() {
                   <button
                     onClick={() => applyFix(f, 'create_placeholder')}
                     disabled={fixing}
-                    className="px-3 py-1.5 text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+                    className="px-3 py-1.5 text-sm bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg"
                   >
                     {fixingId === f.id ? 'Applying...' : 'Create placeholder'}
                   </button>
@@ -347,7 +347,7 @@ export default function ValidatePage() {
               key={f.id}
               className={`p-4 rounded-lg border ${
                 f.severity === 'error'
-                  ? 'bg-red-500/10 border-red-500/30'
+                  ? 'bg-danger/10 border-danger/30'
                   : f.severity === 'warn'
                     ? 'bg-amber-500/10 border-amber-500/30'
                     : 'bg-slate-800 border-slate-700'
@@ -376,7 +376,7 @@ export default function ValidatePage() {
                     type="button"
                     onClick={() => openServicePort(f)}
                     disabled={otherPatchBusy}
-                    className="px-3 py-1.5 text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+                    className="px-3 py-1.5 text-sm bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg"
                   >
                     Add port…
                   </button>
@@ -410,7 +410,7 @@ export default function ValidatePage() {
         </button>
         <Link
           href={`/projects/${projectId}/export`}
-          className={`px-4 py-2 rounded-lg ${canExport ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-slate-700 cursor-not-allowed opacity-60 pointer-events-none'}`}
+          className={`px-4 py-2 rounded-lg ${canExport ? 'bg-brand-500 hover:bg-brand-400' : 'bg-slate-700 cursor-not-allowed opacity-60 pointer-events-none'}`}
         >
           {canExport ? 'Next: Export to Check Point R82.x' : 'Resolve errors to export'}
         </Link>
@@ -471,7 +471,7 @@ export default function ValidatePage() {
                   placeholder="unique-object-name"
                 />
               </div>
-              {otherPatchError && <p className="text-sm text-red-400">{otherPatchError}</p>}
+              {otherPatchError && <p className="text-sm text-danger">{otherPatchError}</p>}
             </div>
             <div className="flex gap-2 mt-6">
               <button
@@ -522,14 +522,14 @@ export default function ValidatePage() {
                   placeholder="e.g. 443"
                 />
               </div>
-              {otherPatchError && <p className="text-sm text-red-400">{otherPatchError}</p>}
+              {otherPatchError && <p className="text-sm text-danger">{otherPatchError}</p>}
             </div>
             <div className="flex gap-2 mt-6">
               <button
                 type="button"
                 onClick={submitServicePort}
                 disabled={otherPatchBusy}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+                className="px-4 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg"
               >
                 {otherPatchBusy ? 'Saving…' : 'Save port'}
               </button>
@@ -594,7 +594,7 @@ export default function ValidatePage() {
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg"
                 />
                 {editErrors.find((e) => e.field === 'name') && (
-                  <p className="text-red-400 text-xs mt-1">{editErrors.find((e) => e.field === 'name')?.message}</p>
+                  <p className="text-danger text-xs mt-1">{editErrors.find((e) => e.field === 'name')?.message}</p>
                 )}
               </div>
 
@@ -610,7 +610,7 @@ export default function ValidatePage() {
                       className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg"
                     />
                     {editErrors.find((e) => e.field === 'rangeFrom') && (
-                      <p className="text-red-400 text-xs mt-1">
+                      <p className="text-danger text-xs mt-1">
                         {editErrors.find((e) => e.field === 'rangeFrom')?.message}
                       </p>
                     )}
@@ -625,7 +625,7 @@ export default function ValidatePage() {
                       className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg"
                     />
                     {editErrors.find((e) => e.field === 'rangeTo') && (
-                      <p className="text-red-400 text-xs mt-1">
+                      <p className="text-danger text-xs mt-1">
                         {editErrors.find((e) => e.field === 'rangeTo')?.message}
                       </p>
                     )}
@@ -654,7 +654,7 @@ export default function ValidatePage() {
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg"
                   />
                   {editErrors.find((e) => e.field === 'value') && (
-                    <p className="text-red-400 text-xs mt-1">{editErrors.find((e) => e.field === 'value')?.message}</p>
+                    <p className="text-danger text-xs mt-1">{editErrors.find((e) => e.field === 'value')?.message}</p>
                   )}
                 </div>
               )}

@@ -61,4 +61,46 @@ describe('ASA Parser', () => {
     expect(result.warnings).toHaveLength(0);
     expect(result.statements).toHaveLength(0);
   });
+
+  it('parses remote-access VPN (tunnel-group + group-policy + pool) without capturing the key', () => {
+    const cfg = [
+      'ip local pool VPN-POOL 10.10.10.1-10.10.10.254 mask 255.255.255.0',
+      'group-policy GP-RA internal',
+      'group-policy GP-RA attributes',
+      ' vpn-tunnel-protocol ssl-client ikev2',
+      ' split-tunnel-network-list value SPLIT-ACL',
+      'tunnel-group RA-VPN type remote-access',
+      'tunnel-group RA-VPN general-attributes',
+      ' address-pool VPN-POOL',
+      ' default-group-policy GP-RA',
+      'tunnel-group RA-VPN ipsec-attributes',
+      ' ikev2 local-authentication pre-shared-key SuperSecret123',
+    ].join('\n');
+    const result = parseASA(cfg);
+    // ASA splits a tunnel group across a `type` line and `*-attributes` blocks,
+    // so the parser emits one fragment per line; normalization merges them by name.
+    const frags = result.statements.filter(
+      (s) => (s as { type: string }).type === 'tunnel-group'
+    ) as Array<{ name: string; tunnelType?: string; addressPool?: string; pskConfigured?: boolean }>;
+    expect(frags.every((f) => f.name === 'RA-VPN')).toBe(true);
+    expect(frags.some((f) => f.tunnelType === 'remote-access')).toBe(true);
+    expect(frags.some((f) => f.addressPool === 'VPN-POOL')).toBe(true);
+    expect(frags.some((f) => f.pskConfigured === true)).toBe(true);
+    // The actual key must never appear in any captured field.
+    expect(JSON.stringify(frags)).not.toContain('SuperSecret123');
+  });
+
+  it('parses site-to-site crypto map (peer + match address)', () => {
+    const cfg = [
+      'crypto map OUTSIDE_MAP 10 match address VPN-ACL',
+      'crypto map OUTSIDE_MAP 10 set peer 203.0.113.5',
+    ].join('\n');
+    const result = parseASA(cfg);
+    const maps = result.statements.filter((s) => (s as { type: string }).type === 'crypto-map') as Array<{
+      matchAcl?: string;
+      peer?: string;
+    }>;
+    expect(maps.some((m) => m.matchAcl === 'VPN-ACL')).toBe(true);
+    expect(maps.some((m) => m.peer === '203.0.113.5')).toBe(true);
+  });
 });

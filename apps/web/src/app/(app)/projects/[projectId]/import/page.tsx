@@ -140,7 +140,7 @@ export default function ImportPage() {
   return (
     <div>
       <nav className="text-sm text-slate-400 mb-6">
-        <Link href="/projects" className="hover:text-cyan-400">
+        <Link href="/projects" className="hover:text-brand-300">
           Projects
         </Link>
         <span className="mx-2">/</span>
@@ -151,14 +151,14 @@ export default function ImportPage() {
         <button
           type="button"
           onClick={() => setMode('paste')}
-          className={`px-4 py-2 rounded-lg ${mode === 'paste' ? 'bg-cyan-600' : 'bg-slate-700'}`}
+          className={`px-4 py-2 rounded-lg ${mode === 'paste' ? 'bg-brand-500' : 'bg-slate-700'}`}
         >
           Paste
         </button>
         <button
           type="button"
           onClick={() => setMode('upload')}
-          className={`px-4 py-2 rounded-lg ${mode === 'upload' ? 'bg-cyan-600' : 'bg-slate-700'}`}
+          className={`px-4 py-2 rounded-lg ${mode === 'upload' ? 'bg-brand-500' : 'bg-slate-700'}`}
         >
           Upload File
         </button>
@@ -191,7 +191,7 @@ export default function ImportPage() {
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg"
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-50 rounded-lg"
             >
               {loading ? 'Importing...' : 'Import & Continue'}
             </button>
@@ -207,7 +207,7 @@ export default function ImportPage() {
             type="file"
             accept=".txt,.cfg,.json,.conf,.csv,.xml"
             onChange={handleFile}
-            className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-cyan-600 file:text-white"
+            className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-brand-500 file:text-white"
           />
           {loading && <p className="mt-2 text-amber-400">Uploading...</p>}
         </div>

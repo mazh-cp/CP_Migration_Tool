@@ -1,39 +1,85 @@
-# Production upgrade (Ubuntu)
-
-Full detail: [REMOTE_INSTALL.md](../REMOTE_INSTALL.md).
+# Production upgrade — curl commands (Ubuntu VM)
 
 **Current release tag:** `v1.5.3` (see root `CHANGELOG.md`).
 
-## On the server (curl)
+Run these **on the server** after `ssh ubuntu@your-vm` (or paste into a VM cloud-init / runbook). They download the updater from GitHub and run it with `sudo`.
 
-`sudo` does not inherit `BRANCH=…` from the left side of the pipe. For a **pinned tag**, use **`bash -s -- <tag>`** or **`sudo env BRANCH=… bash`**.
+**Important:** `sudo` does **not** inherit `BRANCH=…` from `BRANCH=v1.x curl | sudo bash`. Always pass the git ref **inside** `sudo` (`env BRANCH=…` or `bash -s -- <ref>`).
+
+---
+
+## Curl upgrade — pinned tag (recommended)
 
 ```bash
-# Latest main
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo env BRANCH=v1.5.3 DOC_RELEASE_TAG=v1.5.3 bash
 ```
 
+Same ref, using the wrapper’s positional argument:
+
 ```bash
-# Pinned v1.5.3 (recommended wrapper)
 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo bash -s -- v1.5.3
 ```
 
+Direct updater (no `upgrade-production.sh` wrapper — same end result):
+
 ```bash
-# Same, via env
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo env BRANCH=v1.5.3 bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/update_azure_ubuntu.sh | sudo env BRANCH=v1.5.3 DOC_RELEASE_TAG=v1.5.3 bash
+```
+
+---
+
+## Curl upgrade — latest `main`
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo env BRANCH=main DOC_RELEASE_TAG=main bash
+```
+
+Or:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo bash
+```
+
+---
+
+## Optional environment (prepend to `sudo env` or export before `curl`)
+
+| Variable | Example | Purpose |
+|----------|---------|---------|
+| `PORT` | `PORT=3000` | Systemd / health check port (also reads `PORT` from `apps/web/.env` when set) |
+| `APP_DIR` | `APP_DIR=/opt/cp_migration_tool` | Git checkout path |
+| `SERVICE_USER` | `SERVICE_USER=cpmt` | User that runs `npm` / the app |
+| `SERVICE_NAME` | `SERVICE_NAME=cp-migration-tool` | systemd unit name |
+| `NODE_OPTIONS` | `--max-old-space-size=8192` | Node heap for `npm run build` (default `6144` is set in the updater if unset) |
+
+Example:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo env BRANCH=v1.5.3 DOC_RELEASE_TAG=v1.5.3 PORT=3000 bash
+```
+
+---
+
+## From your laptop (single line, no clone)
+
+```bash
+ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo env BRANCH=v1.5.3 DOC_RELEASE_TAG=v1.5.3 bash'
 ```
 
 ```bash
-# Self-contained updater (no wrapper; same as above for any tag)
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/update_azure_ubuntu.sh | sudo env BRANCH=v1.5.3 bash
+ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo env BRANCH=main DOC_RELEASE_TAG=main bash'
 ```
 
-Legacy alias: `deploy/update_azure_ubuntu.sh` (same behavior).
+---
 
-## From your laptop (SSH)
+## From a local git clone (helper script)
 
 ```bash
 REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.5.3
 ```
 
-Environment overrides: `APP_DIR`, `SERVICE_USER`, `SERVICE_NAME`, `PORT`, `BRANCH`, `DOC_RELEASE_TAG`, `REPO_SLUG` (remote script only).
+Overrides: `REPO_SLUG`, `DOC_RELEASE_TAG`, `NODE_OPTIONS`, `SSH_OPTS` (see `deploy/upgrade-remote-production.sh`).
+
+---
+
+More context: [REMOTE_INSTALL.md](../REMOTE_INSTALL.md), [DEPLOYMENT.md](../DEPLOYMENT.md).

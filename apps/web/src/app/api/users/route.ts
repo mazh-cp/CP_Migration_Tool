@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@/lib/auth';
 import { requireTenantSession } from '@/lib/project-access';
+import { canManagePlatformAdminAccount } from '@/lib/platform-user-guard';
+import { getPasswordViolations, PASSWORD_MAX_LENGTH } from '@/lib/password-policy';
 
 const createUserSchema = z.object({
   username: z.string().min(2).max(64).regex(/^[a-zA-Z0-9_-]+$/),
-  password: z.string().min(6),
+  password: z.string().min(1).max(PASSWORD_MAX_LENGTH),
   email: z.string().email().optional(),
 });
 
@@ -17,11 +19,14 @@ export async function GET() {
 
   const memberships = await prisma.tenantMembership.findMany({
     where: { tenantId: session.tenantId, status: 'active' },
-    include: { user: { select: { id: true, username: true, email: true, createdAt: true } } },
+    include: { user: { select: { id: true, username: true, email: true, createdAt: true, isPlatformAdmin: true } } },
     orderBy: { user: { username: 'asc' } },
   });
+  const visible = canManagePlatformAdminAccount(session)
+    ? memberships
+    : memberships.filter((m) => !m.user.isPlatformAdmin);
   return NextResponse.json(
-    memberships.map((m) => ({
+    visible.map((m) => ({
       id: m.user.id,
       username: m.user.username,
       email: m.user.email,
@@ -47,6 +52,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 
+  const passwordViolations = getPasswordViolations(body.password, { username: body.username });
+  if (passwordViolations.length > 0) {
+    return NextResponse.json(
+      { error: 'Password does not meet complexity requirements', requirements: passwordViolations },
+      { status: 400 }
+    );
+  }
+
   const existingByUsername = await prisma.user.findUnique({ where: { username: body.username } });
   if (existingByUsername) {
     return NextResponse.json({ error: 'Username already exists' }, { status: 409 });
@@ -61,7 +74,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const passwordHash = await bcrypt.hash(body.password, 10);
+  const passwordHash = await hashPassword(body.password);
   const user = await prisma.user.create({
     data: {
       username: body.username,

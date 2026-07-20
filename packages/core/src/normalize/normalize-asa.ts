@@ -19,7 +19,12 @@ import type {
   ExplicitPolicyRule,
   FortinetVipStatement,
   FortinetIppoolStatement,
+  IpLocalPoolStatement,
+  GroupPolicyStatement,
+  TunnelGroupStatement,
+  CryptoMapStatement,
 } from '@cisco2cp/parsers';
+import type { NormalizedVpn } from '../models/normalized';
 import { createId } from '../utils/id';
 import {
   ObjectRegistry,
@@ -58,6 +63,11 @@ export function normalizeAsa(statements: ASAAstNode[]): NormalizedResult {
   const zones: NormalizedZone[] = [];
   const warnings: string[] = [];
   let natOrder = 0;
+
+  const ipLocalPools = new Map<string, IpLocalPoolStatement>();
+  const groupPolicies = new Map<string, GroupPolicyStatement>();
+  const tunnelGroups: TunnelGroupStatement[] = [];
+  const cryptoMaps: CryptoMapStatement[] = [];
 
   for (const st of statements) {
     if (st.type === 'object-network') {
@@ -98,13 +108,89 @@ export function normalizeAsa(statements: ASAAstNode[]): NormalizedResult {
     } else if (st.type === 'explicit-policy-rule') {
       const rule = normalizeExplicitPolicyRule(st as ExplicitPolicyRule, warnings);
       if (rule) rules.push(rule);
+    } else if (st.type === 'ip-local-pool') {
+      const p = st as IpLocalPoolStatement;
+      ipLocalPools.set(p.name, p);
+    } else if (st.type === 'group-policy') {
+      const g = st as GroupPolicyStatement;
+      groupPolicies.set(g.name, g);
+    } else if (st.type === 'tunnel-group') {
+      tunnelGroups.push(st as TunnelGroupStatement);
+    } else if (st.type === 'crypto-map') {
+      cryptoMaps.push(st as CryptoMapStatement);
     }
   }
 
   // Objects come from registry (deterministic, deduped)
   objects.push(...registry.listAll());
 
-  return { objects, rules, nat, interfaces, zones, warnings };
+  const vpn = buildVpn(ipLocalPools, groupPolicies, tunnelGroups, cryptoMaps);
+  if (vpn) warnings.push('VPN detected: exported as review notes; Check Point VPN requires manual recreation.');
+
+  return { objects, rules, nat, interfaces, zones, ...(vpn ? { vpn } : {}), warnings };
+}
+
+/** Assemble VPN review notes from ASA VPN statements. Returns undefined when no VPN present. */
+function buildVpn(
+  ipLocalPools: Map<string, IpLocalPoolStatement>,
+  groupPolicies: Map<string, GroupPolicyStatement>,
+  tunnelGroups: TunnelGroupStatement[],
+  cryptoMaps: CryptoMapStatement[]
+): NormalizedVpn | undefined {
+  const remoteAccess: NormalizedVpn['remoteAccess'] = [];
+  const siteToSite: NormalizedVpn['siteToSite'] = [];
+
+  // ASA emits a fragment per tunnel-group line (type line + attribute blocks); merge by name.
+  const merged = new Map<string, TunnelGroupStatement>();
+  for (const tg of tunnelGroups) {
+    const prev = merged.get(tg.name) ?? { type: 'tunnel-group', name: tg.name };
+    merged.set(tg.name, {
+      ...prev,
+      tunnelType: tg.tunnelType ?? prev.tunnelType,
+      addressPool: tg.addressPool ?? prev.addressPool,
+      defaultGroupPolicy: tg.defaultGroupPolicy ?? prev.defaultGroupPolicy,
+      pskConfigured: tg.pskConfigured || prev.pskConfigured,
+    });
+  }
+
+  for (const tg of merged.values()) {
+    if (tg.tunnelType === 'remote-access') {
+      const gp = tg.defaultGroupPolicy ? groupPolicies.get(tg.defaultGroupPolicy) : undefined;
+      const pool = tg.addressPool ? ipLocalPools.get(tg.addressPool) : undefined;
+      remoteAccess.push({
+        poolName: tg.addressPool,
+        poolRange: pool?.range,
+        splitTunnelList: gp?.splitTunnelList,
+        protocols: gp?.vpnTunnelProtocol ?? [],
+      });
+    } else {
+      siteToSite.push({ name: tg.name, pskConfigured: tg.pskConfigured });
+    }
+  }
+
+  // A crypto map entry spans multiple lines (match address / set peer) sharing
+  // name+seq; consolidate them first.
+  const cryptoBySeq = new Map<string, { peer?: string; matchAcl?: string }>();
+  for (const cm of cryptoMaps) {
+    const key = `${cm.name}#${cm.seq}`;
+    const prev = cryptoBySeq.get(key) ?? {};
+    cryptoBySeq.set(key, { peer: cm.peer ?? prev.peer, matchAcl: cm.matchAcl ?? prev.matchAcl });
+  }
+
+  // ASA names ipsec-l2l tunnel groups by peer IP, so attach each crypto map to the
+  // site-to-site entry whose name matches its peer; otherwise add a standalone entry.
+  for (const [key, cm] of cryptoBySeq) {
+    const entry = cm.peer ? siteToSite.find((s) => s.name === cm.peer) : undefined;
+    if (entry) {
+      entry.peer = cm.peer;
+      if (cm.matchAcl) entry.matchAcl = cm.matchAcl;
+    } else {
+      siteToSite.push({ name: cm.peer ?? key, peer: cm.peer, matchAcl: cm.matchAcl });
+    }
+  }
+
+  if (remoteAccess.length === 0 && siteToSite.length === 0) return undefined;
+  return { remoteAccess, siteToSite };
 }
 
 /** Strip `object-group NAME` / `object NAME` so registry resolves by group/object id. */

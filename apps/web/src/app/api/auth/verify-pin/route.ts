@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT } from 'jose';
 import { verifyPin } from '@/lib/auth';
+import { requireTenantSession } from '@/lib/project-access';
 
 const PIN_SECRET = new TextEncoder().encode(
   process.env.SESSION_SECRET || 'dev-secret-change-in-production'
@@ -9,6 +10,12 @@ const PIN_SECRET = new TextEncoder().encode(
 const PIN_COOKIE = 'cisco2cp_config_unlocked';
 
 export async function POST(req: Request) {
+  const session = await requireTenantSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session.isPlatformAdmin) {
+    return NextResponse.json({ error: 'Only the platform administrator can unlock application configuration' }, { status: 403 });
+  }
+
   const { pin } = (await req.json()) as { pin?: string };
   if (!pin) {
     return NextResponse.json({ error: 'PIN required' }, { status: 400 });

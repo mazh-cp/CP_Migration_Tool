@@ -131,6 +131,54 @@ export interface FortinetIppoolStatement extends ASAStatement {
   endip?: string;
 }
 
+/** ASA `ip local pool` — remote-access VPN address pool. */
+export interface IpLocalPoolStatement extends ASAStatement {
+  type: 'ip-local-pool';
+  name: string;
+  range: string;
+  mask?: string;
+}
+
+/** ASA `group-policy NAME internal|attributes` block. */
+export interface GroupPolicyStatement extends ASAStatement {
+  type: 'group-policy';
+  name: string;
+  vpnTunnelProtocol?: string[];
+  splitTunnelList?: string;
+}
+
+/**
+ * ASA `tunnel-group NAME ...` fragment. ASA splits a tunnel group across a
+ * `type` line and one or more `*-attributes` blocks, so a single group emits
+ * multiple fragments (each carrying whatever fields that line declared);
+ * normalization merges them by name. `tunnelType` is only set on the `type` line.
+ */
+export interface TunnelGroupStatement extends ASAStatement {
+  type: 'tunnel-group';
+  name: string;
+  tunnelType?: 'remote-access' | 'ipsec-l2l';
+  addressPool?: string;
+  defaultGroupPolicy?: string;
+  /** True when a pre-shared key is present. The key itself is never captured. */
+  pskConfigured?: boolean;
+}
+
+/** ASA `crypto map NAME SEQ ...` line (site-to-site VPN). */
+export interface CryptoMapStatement extends ASAStatement {
+  type: 'crypto-map';
+  name: string;
+  seq: number;
+  matchAcl?: string;
+  peer?: string;
+  ifaceName?: string;
+}
+
+export type ASAVpnStatement =
+  | IpLocalPoolStatement
+  | GroupPolicyStatement
+  | TunnelGroupStatement
+  | CryptoMapStatement;
+
 export type ASAAstNode =
   | ObjectNetwork
   | ObjectGroupNetwork
@@ -143,6 +191,7 @@ export type ASAAstNode =
   | ExplicitPolicyRule
   | FortinetVipStatement
   | FortinetIppoolStatement
+  | ASAVpnStatement
   | ASAStatement;
 
 export interface ASAParseResult {
