@@ -1,8 +1,8 @@
 # Migrator
 
-**Cisco ASA / FTD / Fortinet → Check Point Firewall Migration Tool**
+**Cisco ASA / FTD / Fortinet / Palo Alto → Check Point Firewall Migration Tool**
 
-Convert Cisco ASA, FTD, or Fortinet FortiGate configurations to Check Point equivalents. Modular, explainable, safe-by-default.
+Convert Cisco ASA, FTD, Fortinet (FortiGate / FortiManager), or Palo Alto (PAN-OS) configurations to Check Point equivalents. Modular, explainable, safe-by-default.
 
 **Version:** 1.6.1  
 **Repository:** https://github.com/mazh-cp/CP_Migration_Tool
@@ -13,7 +13,7 @@ Convert Cisco ASA, FTD, or Fortinet FortiGate configurations to Check Point equi
 
 Migrator helps you:
 
-- **Import** Cisco ASA, FTD, or Fortinet FortiGate configurations (paste or file upload)
+- **Import** Cisco ASA, FTD, Fortinet (FortiGate / FortiManager), or Palo Alto (PAN-OS XML) configurations (paste or file upload)
 - **Parse** and normalize to a vendor-neutral model
 - **Map** objects, services, rules, interfaces, and NAT to Check Point
 - **Validate** and fix missing references
@@ -186,12 +186,17 @@ Full options, laptop one-liner via SSH, and troubleshooting: [deploy/UPGRADE.md]
 |--------|---------|
 | ASA | Text (.txt, .cfg) |
 | FTD | JSON, ASA-compatible text |
+| FortiGate (FortiOS) | Full config `.conf` / `.txt` |
+| FortiManager | Policy-package JSON (paste/upload or live JSON-RPC pull) |
+| Palo Alto (PAN-OS) | XML (paste or `.xml`; base64 ZIP-of-XML; best-effort set-format) |
+| FortiAnalyzer (optional) | JSON/CSV hit data (merged into rules on parse) |
 
 | Export | Outputs |
 |--------|---------|
-| SMS (Mgmt API) | bundle.json, run_import.cli |
+| SMS (Mgmt API) | bundle.json, run_import.cli, migration-report.json |
 | SMS (SmartConsole) | objects.csv, services.csv, groups.csv, policy.csv, nat.csv |
-| Gateway | gaia_clish.txt |
+| Gateway | gaia_clish.txt (interfaces, static + IPv6 routes) |
+| Review notes | vpn.notes.json (when VPN is present) |
 
 ---
 

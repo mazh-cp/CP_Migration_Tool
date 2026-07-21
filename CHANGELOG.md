@@ -31,6 +31,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Object-group nesting (ASA):** groups now resolve order-independently via two-pass normalization — forward references and multi-level nesting work; unknown and self-references produce warnings instead of silent drops.
 - **Normalized/export APIs** return `routes` and `vpn`; `NormalizedData` gains additive `routesJson` / `vpnJson` columns (run `npx prisma db push` — non-destructive).
 - **Turborepo:** `typecheck` now depends on the package's own `build`, fixing an intermittent `TS6053` race between Next.js typecheck and `.next` cleaning.
+- **UI:** Check Point brand refresh (Brand Berry accent, warm-neutral surfaces, shared UI primitives, DIN-substitute typography); dark theme owned intentionally (removed the unused `darkMode: 'class'` toggle).
+
+### Account security
+
+- **Password complexity policy** enforced server-side for self-service change, admin-created users, and admin resets: 12–72 chars with upper/lower/digit/special, must not contain the username, denylist-checked; Settings shows a live requirement checklist.
+- **Admin password reset** from Settings → Users (platform-admin account protected from tenant admins); bcrypt cost raised to 12.
+- **Session revocation:** changing or resetting a password revokes the account's other active sessions; actions are audit-logged (`password.change` / `password.reset`).
+- **`AUTH_PASSWORD` is now bootstrap-only:** once the admin sets a password in-app (`User.passwordChangedByUser`), the env value is no longer accepted and the DB hash is no longer re-synced from env — closing a path where a stale env password kept working.
 
 ### Security
 

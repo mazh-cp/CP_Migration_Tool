@@ -51,7 +51,7 @@ Use this path when the source firewall is a **FortiGate** (FortiOS CLI configura
 ### 4. Parse & Normalize
 
 - Click **Run Parse**. Parsing runs in the **background**; the page polls until the job finishes.
-- Review **Objects**, **Rules**, **NAT**, **Interfaces**, and **Warnings**.
+- Review **Objects**, **Rules**, **NAT**, **Routes**, **Interfaces**, and **Warnings**, plus any **review notes** (VPN, HA, inspection — captured for manual recreation, secrets never stored).
 - Click **Proceed to Map Interfaces**.
 
 ### 5. Map Interfaces
@@ -188,13 +188,15 @@ Use this path when the source is a **Palo Alto Networks** firewall (or Panorama-
 ### 3. Parse & Normalize
 
 - Click **Run Parse**
-- The parser converts the config into normalized objects, rules, NAT, and interfaces
+- The parser converts the config into normalized objects, rules, NAT, routes, and interfaces
 - Review the counts:
-  - **Objects** — Network and service objects
+  - **Objects** — Network and service objects (IPv4 and IPv6)
   - **Rules** — Access rules
   - **NAT** — NAT statements
+  - **Routes** — Static routes (converted); dynamic routing (OSPF/BGP/EIGRP) is captured as review notes
   - **Interfaces** — Source firewall interfaces
-  - **Warnings** — Unsupported or ambiguous constructs
+  - **Warnings** — Unsupported or ambiguous constructs (credentials are masked)
+- **Review notes** are captured for VPN, high availability (failover), and inspection (policy-map / threat-detection) — these are not auto-converted and are surfaced for manual recreation. Pre-shared keys and other secrets are never captured.
 - Click **Proceed to Map Interfaces**
 - You can **Re-run Parse** if you change the source config
 
@@ -240,9 +242,19 @@ Use this path when the source is a **Palo Alto Networks** firewall (or Panorama-
 
 ### 8. Export
 
+- The Export page shows a **Migration coverage** panel first: converted counts, categories that need manual review (VPN, HA, inspection, etc.), and any source constructs that were **not migrated** (grouped by command). Review it before downloading.
 - **Target:** SMS only, Gateway only, or Both
 - **Format (SMS):** Mgmt API (JSON + CLI), SmartConsole (CSV), or Both
 - Click **Download**
+- The bundle includes `migration-report.json` (Mgmt API), and — when the source had VPN — `vpn.notes.json`. The Gateway export (`gaia_clish.txt`) includes static and IPv6 routes; dynamic routing appears as comments for manual setup.
+
+---
+
+## Managing your account
+
+- **Settings → My profile:** change your email and password. A new password must meet the complexity policy (12–72 chars; upper, lower, digit, and special character; not your username) — a live checklist shows each requirement as you type.
+- Changing your password signs out your other active sessions.
+- Admins can create users and reset member passwords from **Settings → Users**.
 
 ---
 
