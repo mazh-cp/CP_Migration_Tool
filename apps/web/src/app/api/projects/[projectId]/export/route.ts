@@ -7,8 +7,9 @@ import {
   exportToCliTemplate,
   exportToGaiaClish,
   exportToSmartConsoleCsv,
+  exportVpnNotes,
 } from '@cisco2cp/exporters';
-import type { MappingDecision } from '@cisco2cp/core';
+import type { MappingDecision, NormalizedVpn, NormalizedRoute } from '@cisco2cp/core';
 
 type ExportTarget = 'sms' | 'gateway' | 'both';
 type SmsFormat = 'mgmt-api' | 'smartconsole' | 'both';
@@ -61,14 +62,27 @@ export async function POST(
 
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  const safeParse = <T,>(json: string | null | undefined, fallback: T): T => {
+    try {
+      return json ? (JSON.parse(json) as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const vpn = safeParse<NormalizedVpn | undefined>(data.vpnJson, undefined);
   const normalized = {
     objects: JSON.parse(data.objectsJson),
     rules: JSON.parse(data.rulesJson),
     nat: JSON.parse(data.natJson),
     interfaces: JSON.parse(data.interfacesJson),
     zones: JSON.parse(data.zonesJson),
+    routes: safeParse<NormalizedRoute[]>(data.routesJson, []),
+    vpn,
     warnings: JSON.parse(data.warningsJson),
   };
+  const vpnNotes = exportVpnNotes(vpn);
+  const hasVpn = vpnNotes.remoteAccess.length > 0 || vpnNotes.siteToSite.length > 0;
 
   const mappingDecisions: MappingDecision[] = records.map((r) => ({
     id: r.id,
@@ -144,6 +158,9 @@ export async function POST(
       const gaia = exportToGaiaClish(normalized, mappings);
       zip.file('gateway/gaia_clish.txt', gaia);
     }
+    if (hasVpn) {
+      zip.file('vpn.notes.json', JSON.stringify(vpnNotes, null, 2));
+    }
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/zip' });
     await markExportCompleted(projectId, tenantId);
     return new NextResponse(blob, {
@@ -179,6 +196,9 @@ export async function POST(
     zip.file('groups.csv', csv.groups);
     zip.file('policy.csv', csv.policy);
     zip.file('nat.csv', csv.nat);
+    if (hasVpn) {
+      zip.file('vpn.notes.json', JSON.stringify(vpnNotes, null, 2));
+    }
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/zip' });
     await markExportCompleted(projectId, tenantId);
     return new NextResponse(blob, {
@@ -190,7 +210,7 @@ export async function POST(
   }
 
   await markExportCompleted(projectId, tenantId);
-  return NextResponse.json(bundle, {
+  return NextResponse.json(hasVpn ? { ...bundle, vpnNotes } : bundle, {
     headers: {
       'Content-Disposition': `attachment; filename="checkpoint-${projectId}.json"`,
     },

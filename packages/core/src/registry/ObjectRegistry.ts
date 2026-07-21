@@ -165,6 +165,33 @@ export class ObjectRegistry {
     return id;
   }
 
+  /**
+   * Register a group by name up front (empty shell) so references to it resolve
+   * regardless of definition order — enables deep / forward-referenced nesting.
+   * Members are filled later via {@link setGroupMembers}.
+   */
+  reserveGroupObject(
+    type: 'group' | 'service-group',
+    name: string,
+    proto?: 'tcp' | 'udp',
+    sourceLine?: number
+  ): string {
+    const gtype = type === 'service-group' ? 'service' : 'network';
+    const canonical = canonicalGroupKey(gtype, name);
+    const existing = this.byKey.get(canonical);
+    if (existing) return existing;
+    const id = stableId(canonical);
+    this.byId.set(id, { id, type, name, members: [], proto, sourceLine });
+    this.byKey.set(canonical, id);
+    this.nameToId.set(normalizeKey(name), id);
+    return id;
+  }
+
+  setGroupMembers(id: string, members: string[]): void {
+    const obj = this.byId.get(id);
+    if (obj) obj.members = members;
+  }
+
   resolveByName(name: string): string | undefined {
     return this.nameToId.get(normalizeKey(name));
   }

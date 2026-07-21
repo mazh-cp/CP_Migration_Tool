@@ -10,7 +10,7 @@ import {
   scanFortinetConfigInventory,
   scanFortiManagerJsonInventory,
 } from '@cisco2cp/parsers';
-import { normalizeAsa, normalizeFtd, validate, buildMigrationReport } from '@cisco2cp/core';
+import { normalizeAsa, normalizeFtd, validate, buildMigrationReport, redactSecrets } from '@cisco2cp/core';
 import { mapObjects, mapPolicy, mapNat } from '@cisco2cp/core';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -111,6 +111,9 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
       normalized.rules = merged.rules;
       normalized.warnings = [...merged.warnings, ...normalized.warnings];
     }
+    // Warnings can quote raw config lines (e.g. unsupported-line samples) which may
+    // carry credentials — mask before they reach the report, DB, and API responses.
+    normalized.warnings = normalized.warnings.map((w) => redactSecrets(w));
     logger.info(
       {
         projectId,
@@ -170,6 +173,8 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
         interfacesJson: JSON.stringify(normalized.interfaces),
         zonesJson: JSON.stringify(normalized.zones),
         warningsJson: JSON.stringify(normalized.warnings),
+        routesJson: JSON.stringify(normalized.routes ?? []),
+        vpnJson: JSON.stringify(normalized.vpn ?? null),
         migrationReportJson: JSON.stringify(migrationReport),
       },
       update: {
@@ -179,6 +184,8 @@ export async function executeParseJob(jobId: string, projectId: string, tenantId
         interfacesJson: JSON.stringify(normalized.interfaces),
         zonesJson: JSON.stringify(normalized.zones),
         warningsJson: JSON.stringify(normalized.warnings),
+        routesJson: JSON.stringify(normalized.routes ?? []),
+        vpnJson: JSON.stringify(normalized.vpn ?? null),
         migrationReportJson: JSON.stringify(migrationReport),
       },
     });

@@ -73,4 +73,51 @@ describe('parsePaloAltoXml', () => {
     expect(statements.length).toBe(0);
     expect(warnings.length).toBeGreaterThan(0);
   });
+
+  it('captures IKE gateways as VPN notes without the pre-shared key, and IPv6 addresses', () => {
+    const xml = `<config><devices><entry name="localhost.localdomain">
+      <network>
+        <ike><gateway><entry name="gw-branch">
+          <authentication><pre-shared-key><key>-AQ==TopSecretPsk</key></pre-shared-key></authentication>
+          <peer-address><ip>203.0.113.77</ip></peer-address>
+          <local-address><interface>ethernet1/2</interface></local-address>
+        </entry></gateway></ike>
+      </network>
+      <vsys><entry name="vsys1">
+        <address>
+          <entry name="v6-host"><ip-netmask>2001:db8::5/128</ip-netmask></entry>
+          <entry name="v6-net"><ip-netmask>2001:db8:aa::/48</ip-netmask></entry>
+          <entry name="v4-host"><ip-netmask>10.1.1.5/32</ip-netmask></entry>
+        </address>
+      </entry></vsys>
+    </entry></devices></config>`;
+    const { statements, warnings } = parsePaloAltoXml(xml);
+
+    const gw = statements.find((s) => s.type === 'pan-ike-gateway') as {
+      name: string;
+      peer?: string;
+      iface?: string;
+      pskConfigured?: boolean;
+    };
+    expect(gw?.name).toBe('gw-branch');
+    expect(gw?.peer).toBe('203.0.113.77');
+    expect(gw?.iface).toBe('ethernet1/2');
+    expect(gw?.pskConfigured).toBe(true);
+    expect(JSON.stringify(statements)).not.toContain('TopSecretPsk');
+    expect(warnings.some((w) => /IKE gateways captured/i.test(w))).toBe(true);
+
+    const objs = statements.filter((s) => s.type === 'object-network') as Array<{
+      name: string;
+      host?: string;
+      subnet?: string;
+      subnetMask?: string;
+    }>;
+    const v6host = objs.find((o) => o.name === 'v6-host');
+    expect(v6host?.host).toBe('2001:db8::5');
+    const v6net = objs.find((o) => o.name === 'v6-net');
+    expect(v6net?.subnet).toBe('2001:db8:aa::');
+    expect(v6net?.subnetMask).toBe('48');
+    const v4host = objs.find((o) => o.name === 'v4-host');
+    expect(v4host?.host).toBe('10.1.1.5');
+  });
 });

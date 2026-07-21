@@ -4,6 +4,7 @@ import type {
   ExplicitPolicyRule,
   FortinetIppoolStatement,
   FortinetVipStatement,
+  FortinetVpnPhase1Statement,
   InterfaceStatement,
   NameIfStatement,
   ObjectGroupNetwork,
@@ -127,7 +128,12 @@ export function parseFortinetConfig(content: string): ASAParseResult {
       if (st) statements.push(st);
       return;
     }
-    if (cfgPath === 'firewall addrgrp') {
+    if (cfgPath === 'firewall address6') {
+      const st = buildFirewallAddress6(ed, lineNumber, warnings);
+      if (st) statements.push(st);
+      return;
+    }
+    if (cfgPath === 'firewall addrgrp' || cfgPath === 'firewall addrgrp6') {
       const st = buildAddrGrp(ed, lineNumber, warnings);
       if (st) statements.push(st);
       return;
@@ -148,7 +154,7 @@ export function parseFortinetConfig(content: string): ASAParseResult {
       }
       return;
     }
-    if (cfgPath === 'firewall policy') {
+    if (cfgPath === 'firewall policy' || cfgPath === 'firewall policy6') {
       const st = buildPolicy(ed, lineNumber, warnings, referencedPolicyServices);
       if (st) statements.push(st);
       return;
@@ -166,6 +172,21 @@ export function parseFortinetConfig(content: string): ASAParseResult {
     if (cfgPath === 'system interface') {
       const st = buildSystemInterface(ed, lineNumber);
       if (st) statements.push(st);
+      return;
+    }
+    if (cfgPath === 'vpn ipsec phase1-interface' || cfgPath === 'vpn ipsec phase1') {
+      // Only structural fields are copied out; the psksecret VALUE stays in the
+      // discarded attrs map — pskConfigured is a presence flag.
+      const st: FortinetVpnPhase1Statement = {
+        type: 'fortinet-vpn-phase1',
+        name: ed.name,
+        remoteGw: ed.attrs['remote-gw'],
+        iface: ed.attrs['interface'],
+        proposal: ed.attrs['proposal'],
+        pskConfigured: 'psksecret' in ed.attrs,
+        lineNumber,
+      };
+      statements.push(st);
       return;
     }
   }
@@ -292,6 +313,35 @@ function buildFirewallAddress(
   }
 
   warnings.push(`Address "${name}": unsupported or incomplete definition`);
+  return null;
+}
+
+/** `config firewall address6`: ipprefix (`set ip6 X::/64`) or ip6 range. */
+function buildFirewallAddress6(
+  ed: StackEdit,
+  lineNumber: number,
+  warnings: string[]
+): ObjectNetwork | null {
+  const name = ed.name;
+  const st: ObjectNetwork = { type: 'object-network', name, lineNumber };
+
+  const ip6 = ed.attrs.ip6 ? parseSetValues(ed.attrs.ip6)[0] : undefined;
+  if (ip6) {
+    if (ip6.endsWith('/128')) {
+      st.host = ip6.slice(0, -4);
+      return st;
+    }
+    // Single-token IPv6 CIDR; normalization treats prefix-joined subnets natively.
+    st.subnet = ip6;
+    return st;
+  }
+  const from = ed.attrs['start-ip']?.trim();
+  const to = ed.attrs['end-ip']?.trim();
+  if (from && to) {
+    st.range = { from, to };
+    return st;
+  }
+  warnings.push(`Address6 "${name}": no ip6/range recognized; skipped`);
   return null;
 }
 

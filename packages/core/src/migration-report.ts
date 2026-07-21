@@ -2,12 +2,86 @@ import type { ASAAstNode, FortinetSourceInventory, FortiManagerSourceInventory }
 import type { NormalizedResult, NormalizedPolicyRule } from './models/normalized';
 import type { ValidationResult } from './models/validation';
 import { buildMigrationAssurance, type MigrationAssurance } from './migration-assurance';
+import { redactSecrets } from './security/redaction';
 
 export interface MigrationReportManualItem {
   category: string;
   detail: string;
   ruleId?: string;
   ruleName?: string;
+}
+
+/** A source construct that was not converted, grouped by leading command. */
+export interface UnsupportedConstruct {
+  command: string;
+  count: number;
+  samples: string[];
+}
+
+/**
+ * Phase 0 coverage report: an at-a-glance answer to "what was converted, what
+ * needs manual review, and what was skipped" — so nothing is silently dropped.
+ */
+export interface CoverageReport {
+  converted: {
+    objects: number;
+    rules: number;
+    nat: number;
+    routes: number;
+    interfaces: number;
+    zones: number;
+  };
+  reviewNotes: { category: string; count: number }[];
+  unsupported: UnsupportedConstruct[];
+  unsupportedTotal: number;
+}
+
+function buildCoverage(
+  data: NormalizedResult,
+  manualReview: MigrationReportManualItem[]
+): CoverageReport {
+  // Group "Unsupported or parse error - <line>" warnings by leading command token.
+  const byCommand = new Map<string, { count: number; samples: string[] }>();
+  for (const w of data.warnings) {
+    const m = w.match(/Unsupported or parse error\s*-\s*(.+?)(?:\.\.\.)?$/i);
+    if (!m) continue;
+    const text = m[1].trim();
+    const command = (text.split(/\s+/)[0] || 'unknown').toLowerCase();
+    const entry = byCommand.get(command) ?? { count: 0, samples: [] };
+    entry.count++;
+    // Samples are raw config lines and may carry credentials — mask before they
+    // reach the persisted report / API / export bundle.
+    if (entry.samples.length < 3) entry.samples.push(redactSecrets(text));
+    byCommand.set(command, entry);
+  }
+  const unsupported = Array.from(byCommand.entries())
+    .map(([command, v]) => ({ command, count: v.count, samples: v.samples }))
+    .sort((a, b) => b.count - a.count);
+
+  // Roll manual-review items up by category, and add routing/VPN notes.
+  const noteCounts = new Map<string, number>();
+  for (const item of manualReview) noteCounts.set(item.category, (noteCounts.get(item.category) ?? 0) + 1);
+  if (data.vpn) {
+    noteCounts.set('vpn', (data.vpn.remoteAccess.length ?? 0) + (data.vpn.siteToSite.length ?? 0));
+  }
+  if (data.dynamicRouting?.length) noteCounts.set('dynamic-routing', data.dynamicRouting.length);
+  const reviewNotes = Array.from(noteCounts.entries())
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    converted: {
+      objects: data.objects.length,
+      rules: data.rules.length,
+      nat: data.nat.length,
+      routes: data.routes?.length ?? 0,
+      interfaces: data.interfaces.length,
+      zones: data.zones.length,
+    },
+    reviewNotes,
+    unsupported,
+    unsupportedTotal: unsupported.reduce((s, u) => s + u.count, 0),
+  };
 }
 
 export interface MigrationReport {
@@ -38,6 +112,8 @@ export interface MigrationReport {
   duplicatePolicyFingerprints: number;
   /** Inventory reconciliation, orphans, coverage, functional test outline. */
   assurance: MigrationAssurance;
+  /** What was converted vs flagged for review vs skipped. */
+  coverage: CoverageReport;
 }
 
 export interface BuildMigrationReportOptions {
@@ -121,6 +197,28 @@ export function buildMigrationReport(
     }
   }
 
+  // HA and inspection are captured as review notes, never auto-converted.
+  if (data.ha) {
+    manualReview.push({
+      category: 'high-availability',
+      detail: `ASA failover configured (${data.ha.details.length} line(s)) — plan Check Point ClusterXL / Gaia clustering manually. ${data.ha.details.slice(0, 4).join(' | ')}${data.ha.details.length > 4 ? ' | …' : ''}`,
+    });
+  }
+  if (data.inspection) {
+    for (const pm of data.inspection.policyMaps) {
+      manualReview.push({
+        category: 'inspection',
+        detail: `policy-map ${pm.name} inspects: ${pm.inspects.join(', ')} — map to Threat Prevention / Application Control blades manually`,
+      });
+    }
+    if (data.inspection.threatDetection.length > 0) {
+      manualReview.push({
+        category: 'inspection',
+        detail: `threat-detection configured (${data.inspection.threatDetection.length} line(s)) — review IPS profile equivalents`,
+      });
+    }
+  }
+
   for (const f of validation.findings) {
     if (f.severity === 'error' || f.severity === 'warn') {
       manualReview.push({
@@ -190,5 +288,6 @@ export function buildMigrationReport(
     risks,
     duplicatePolicyFingerprints: dupes,
     assurance,
+    coverage: buildCoverage(data, manualReview),
   };
 }

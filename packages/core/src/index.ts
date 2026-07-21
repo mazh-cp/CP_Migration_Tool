@@ -7,6 +7,8 @@ export type {
   MigrationReport,
   MigrationReportManualItem,
   BuildMigrationReportOptions,
+  CoverageReport,
+  UnsupportedConstruct,
 } from './migration-report';
 export {
   buildMigrationAssurance,
