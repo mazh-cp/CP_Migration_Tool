@@ -1,6 +1,6 @@
 # Production upgrade — curl commands (Ubuntu VM)
 
-**Current release tag:** `v1.6.0` (see root `CHANGELOG.md`).
+**Current release tag:** `v1.6.1` (see root `CHANGELOG.md`).
 
 Run these **on the server** after `ssh ubuntu@your-vm` (or paste into a VM cloud-init / runbook). They download the updater from GitHub and run it with `sudo`.
 
@@ -11,19 +11,19 @@ Run these **on the server** after `ssh ubuntu@your-vm` (or paste into a VM cloud
 ## Curl upgrade — pinned tag (recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.0 DOC_RELEASE_TAG=v1.6.0 bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.1 DOC_RELEASE_TAG=v1.6.1 bash
 ```
 
 Same ref, using the wrapper’s positional argument:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/upgrade-production.sh | sudo bash -s -- v1.6.0
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-production.sh | sudo bash -s -- v1.6.1
 ```
 
 Direct updater (no `upgrade-production.sh` wrapper — same end result):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/update_azure_ubuntu.sh | sudo env BRANCH=v1.6.0 DOC_RELEASE_TAG=v1.6.0 bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/update_azure_ubuntu.sh | sudo env BRANCH=v1.6.1 DOC_RELEASE_TAG=v1.6.1 bash
 ```
 
 ---
@@ -55,7 +55,7 @@ curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/depl
 Example:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.0 DOC_RELEASE_TAG=v1.6.0 PORT=3000 bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.1 DOC_RELEASE_TAG=v1.6.1 PORT=3000 bash
 ```
 
 ---
@@ -63,7 +63,7 @@ curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/de
 ## From your laptop (single line, no clone)
 
 ```bash
-ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.0 DOC_RELEASE_TAG=v1.6.0 bash'
+ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.1 DOC_RELEASE_TAG=v1.6.1 bash'
 ```
 
 ```bash
@@ -75,7 +75,7 @@ ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_M
 ## From a local git clone (helper script)
 
 ```bash
-REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.6.0
+REMOTE=ubuntu@YOUR-VM ./deploy/upgrade-remote-production.sh v1.6.1
 ```
 
 Overrides: `REPO_SLUG`, `DOC_RELEASE_TAG`, `NODE_OPTIONS`, `SSH_OPTS` (see `deploy/upgrade-remote-production.sh`).

@@ -4,7 +4,7 @@
 
 Convert Cisco ASA, FTD, or Fortinet FortiGate configurations to Check Point equivalents. Modular, explainable, safe-by-default.
 
-**Version:** 1.6.0  
+**Version:** 1.6.1  
 **Repository:** https://github.com/mazh-cp/CP_Migration_Tool
 
 ---
@@ -137,7 +137,7 @@ Run **on the Ubuntu server** (SSH session on the VM). `sudo` does not keep `BRAN
 **Pinned release (recommended):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.0 DOC_RELEASE_TAG=v1.6.0 bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.1 DOC_RELEASE_TAG=v1.6.1 bash
 ```
 
 **Latest `main`:**
@@ -149,7 +149,7 @@ curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/depl
 **Alternate pinned form** (`bash -s` passes the ref into the wrapper):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/upgrade-production.sh | sudo bash -s -- v1.6.0
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-production.sh | sudo bash -s -- v1.6.1
 ```
 
 Full options, laptop one-liner via SSH, and troubleshooting: [deploy/UPGRADE.md](deploy/UPGRADE.md), [REMOTE_INSTALL.md](REMOTE_INSTALL.md), [DEPLOYMENT.md](DEPLOYMENT.md).

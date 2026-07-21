@@ -1,5 +1,23 @@
 # Release Notes — Migrator
 
+## v1.6.1 (2026-07-21) — Security patch: credential redaction gaps
+
+Fixes two credential-exposure gaps found in the v1.6.0 security review. Both leaked live ASA secrets from uploaded configs into the persisted migration report and the `/normalized` API (an audience that cannot read the raw config by design).
+
+- **Failover secrets:** `failover ipsec pre-shared-key <psk>` and `failover key 0|8 <key>` are now masked at parse time (previously passed through / mis-masked the level digit only).
+- **`passwd` and AAA keys:** `redactSecrets` now masks legacy ASA `passwd <hash>` and bare `key <secret>` (TACACS+/RADIUS shared secrets) that previously reached parse warnings and coverage samples.
+- **Defense in depth:** all migration-report `manualReview` details and risks are redacted before persistence.
+
+### Upgrade
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.1 DOC_RELEASE_TAG=v1.6.1 bash
+```
+
+After upgrade, re-run the redaction backfill to clean any historical rows: `cd apps/web && npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/redact-normalized-data.ts`. (No schema change in this release.)
+
+---
+
 ## v1.6.0 (2026-07-21) — Coverage report, routing, VPN/HA/inspection notes, IPv6
 
 ### Highlights
