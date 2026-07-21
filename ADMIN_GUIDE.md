@@ -18,10 +18,21 @@ Administration, authentication, RBAC, and configuration.
 
 | Mode | Description |
 |------|-------------|
-| Env admin | `AUTH_USERNAME` and `AUTH_PASSWORD` in `.env` — full admin access |
+| Env admin | `AUTH_USERNAME` / `AUTH_PASSWORD` in `.env` — **bootstrap only**: seeds the first login, then ignored once a password is set in-app |
 | DB users | Created via Settings by env admin — project-level access |
 
 **Required:** At least one of (AUTH_USERNAME/AUTH_PASSWORD) or DB users for login.
+
+**First-login handoff:** After the env admin logs in once and sets a password in **Settings → My profile**, `AUTH_PASSWORD` stops working for that account (`User.passwordChangedByUser`). Remove `AUTH_PASSWORD` from `.env` at that point — leaving a stale value in `.env` has no effect on login but is unnecessary secret exposure.
+
+---
+
+## Password Policy & Account Security
+
+- **Complexity (enforced server-side):** 12–72 characters, at least one uppercase, lowercase, digit, and special character; must not contain the username; rejected if on the common-password denylist. The Settings forms show a live requirement checklist.
+- **Applies to:** self-service change (Settings → My profile), admin-created users (Settings → Users), and admin password resets.
+- **Admin password reset:** a tenant admin can reset another member's password from **Settings → Users**; the platform-admin account is protected from tenant admins. Resets and changes are audit-logged (`password.change` / `password.reset`).
+- **Session revocation:** changing or resetting a password revokes that account's other active sessions, so a stolen session cannot outlive a reset. Passwords are stored as bcrypt hashes (cost 12).
 
 ---
 
@@ -48,7 +59,7 @@ Administration, authentication, RBAC, and configuration.
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | SQLite path (e.g. `file:./data/dev.db`) |
 | `AUTH_USERNAME` | Yes* | Admin login username |
-| `AUTH_PASSWORD` | Yes* | Admin login password |
+| `AUTH_PASSWORD` | Yes* | Admin login password (**bootstrap only** — ignored after admin sets a password in-app) |
 | `SESSION_SECRET` | Yes (prod) | JWT secret, min 32 chars |
 | `CONFIG_PIN` | No | PIN to lock Settings |
 | `UPLOAD_DIR` | No | Upload directory |
@@ -168,8 +179,9 @@ End-user detail: [USER_GUIDE.md](USER_GUIDE.md). API-oriented flow: [docs/proces
 
 ## Security Checklist
 
-1. Use strong `AUTH_PASSWORD` and `SESSION_SECRET`
+1. Set a strong bootstrap `AUTH_PASSWORD`, log in, set an in-app password (Settings → My profile), then remove `AUTH_PASSWORD` from `.env`
 2. Set `SESSION_SECRET` (min 32 chars) in production
 3. Use HTTPS in production
 4. Protect Settings with `CONFIG_PIN` if needed
-5. See [SECURITY.md](SECURITY.md) for full details
+5. Uploaded config secrets are redacted before persistence/API/export; after upgrading, re-run `apps/web/scripts/redact-normalized-data.ts` to scrub any pre-existing rows
+6. See [SECURITY.md](SECURITY.md) for full details

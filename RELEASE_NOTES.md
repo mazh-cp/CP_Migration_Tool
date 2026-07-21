@@ -28,6 +28,8 @@ After upgrade, re-run the redaction backfill to clean any historical rows: `cd a
 - **HA (failover) and inspection (policy-map / threat-detection)** detected and flagged for ClusterXL / Threat Prevention planning.
 - **IPv6** across ASA (objects, routes, `any6`), FortiGate (`address6`/`addrgrp6`/`policy6`), and Palo Alto addresses.
 - **Nested object-groups** resolve order-independently (forward references, multi-level nesting).
+- **Account security:** enforced password complexity policy (12–72 chars, mixed classes, no username, denylist) with a live checklist; admin password reset; session revocation on change/reset; `AUTH_PASSWORD` is now bootstrap-only (ignored after an in-app password is set).
+- **UI:** Check Point brand refresh (Brand Berry accent, warm surfaces, shared primitives).
 - **Security:** secret redaction repaired (previous regexes never matched) and enforced across warnings and report samples; routing/HA/VPN secrets are masked at parse time. Run `scripts/redact-normalized-data.ts` once to clean historical rows.
 
 ### Upgrade
