@@ -34,6 +34,27 @@ describe('redactSecrets', () => {
     expect(redactSecrets('crypto isakmp key Is4kmpKey address 1.2.3.4')).not.toContain('Is4kmpKey');
   });
 
+  it('masks legacy ASA passwd (login/console password)', () => {
+    const out = redactSecrets('passwd 2KFQnbNIdI.2KYOU encrypted');
+    expect(out).not.toContain('2KFQnbNIdI.2KYOU');
+    expect(out.startsWith('passwd ***')).toBe(true);
+  });
+
+  it('masks aaa-server bare key (TACACS+/RADIUS shared secret) but keeps keyed key-id form', () => {
+    expect(redactSecrets('key MyTacacsSecret')).toBe('key ***');
+    // `key 7 <hash>` keeps the key-id and masks the hash
+    expect(redactSecrets('key 7 08221D5C0A16')).not.toContain('08221D5C0A16');
+    expect(redactSecrets('key 7 08221D5C0A16')).toContain('key 7 ***');
+  });
+
+  it('masks failover ipsec pre-shared-key and failover key (incl. level digit forms)', () => {
+    expect(redactSecrets('failover ipsec pre-shared-key MyIpsecPSK123')).not.toContain('MyIpsecPSK123');
+    const fk = redactSecrets('failover key hexadecimal 0123456789abcdef');
+    expect(fk).not.toContain('0123456789abcdef');
+    const fk0 = redactSecrets('failover key 0 MyFailoverKey');
+    expect(fk0).not.toContain('MyFailoverKey');
+  });
+
   it('redacts PEM blocks', () => {
     const pem = '-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA\n-----END RSA PRIVATE KEY-----';
     expect(redactSecrets(pem)).not.toContain('MIIEpAIBAAKCAQEA');

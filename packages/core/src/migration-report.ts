@@ -260,6 +260,11 @@ export function buildMigrationReport(
     );
   }
 
+  // Defense in depth: manual-review details / risks quote config fragments; redact
+  // any credential material before the report is persisted and served via the API.
+  const safeManualReview = manualReview.map((m) => ({ ...m, detail: redactSecrets(m.detail) }));
+  const safeRisks = risks.map((r) => redactSecrets(r));
+
   return {
     generatedAt: new Date().toISOString(),
     version: 2,
@@ -284,8 +289,8 @@ export function buildMigrationReport(
       warnings: validation.findings.filter((f) => f.severity === 'warn').length,
       info: validation.findings.filter((f) => f.severity === 'info').length,
     },
-    manualReview,
-    risks,
+    manualReview: safeManualReview,
+    risks: safeRisks,
     duplicatePolicyFingerprints: dupes,
     assurance,
     coverage: buildCoverage(data, manualReview),

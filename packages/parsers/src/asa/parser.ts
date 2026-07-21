@@ -232,10 +232,14 @@ function parseIpv6Route(line: string, ln: number): RouteStatement | null {
  */
 function maskSecretTokens(line: string): string {
   return line
-    .replace(/\b(password(?:\s+\d+)?\s+)\S+/gi, '$1***')
+    .replace(/\b(pass(?:word|wd)(?:\s+\d+)?\s+)\S+/gi, '$1***')
     .replace(/\b(authentication-key(?:\s+\d+)?\s+)\S+/gi, '$1***')
     .replace(/\b(message-digest-key\s+\d+\s+md5\s+)\S+/gi, '$1***')
-    .replace(/\b(failover\s+key\s+(?:hexadecimal\s+)?)\S+/gi, '$1***');
+    // `pre-shared-key [0|8] X` — covers ASA failover-link IPsec (`failover ipsec
+    // pre-shared-key …`) and tunnel-group ikev1/ikev2 forms.
+    .replace(/\b(pre-shared-key(?:\s+[08])?\s+)\S+/gi, '$1***')
+    // `failover key [hexadecimal|0|8] X` — level digit must not be mistaken for the key.
+    .replace(/\b(failover\s+key\s+(?:hexadecimal\s+|[08]\s+)?)\S+/gi, '$1***');
 }
 
 function parseDynamicRouting(lines: string[], startIdx: number): ParseLineResult {

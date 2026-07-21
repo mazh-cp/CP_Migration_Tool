@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-07-21
+
+### Security
+
+- **ASA `failover ipsec pre-shared-key` and `failover key 0|8 <key>` no longer leak.** The HA capture's token masker missed the failover IPsec PSK (the `ipsec` token broke the `failover key` match) and masked only the level digit of `failover key 0 <key>`. Both are now masked at parse time, so the live failover-link credential no longer reaches the persisted migration report, the `/normalized` API, or the exported `migration-report.json`.
+- **`redactSecrets` now covers legacy `passwd` and bare `key <secret>`.** Previously `passwd <hash>` (legacy ASA login password) and `key <secret>` inside `aaa-server` blocks (TACACS+/RADIUS shared secrets) passed redaction untouched and surfaced in parse warnings / coverage-report samples. Patterns added for both; `pre-shared-key [0|8]` and `failover key` are also handled in the shared redactor.
+- **Defense in depth:** every `manualReview` detail and `risk` string in the migration report is now run through `redactSecrets` before persistence, so any future capture path that quotes a config fragment cannot leak credentials via the report.
+- **Backfill:** re-run `scripts/redact-normalized-data.ts` after upgrading — its shared redactor now catches these shapes in historical rows.
+
 ## [1.6.0] - 2026-07-21
 
 ### Added

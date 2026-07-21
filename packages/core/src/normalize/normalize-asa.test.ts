@@ -291,6 +291,28 @@ end
     expect(JSON.stringify(normalized.vpn)).not.toContain('AbCdEf');
   });
 
+  it('migration report never exposes failover PSK or AAA secrets (end-to-end)', () => {
+    const cfg = [
+      'failover',
+      'failover ipsec pre-shared-key MyIpsecPSK123',
+      'failover key 0 MyFailoverKey',
+      'aaa-server TACGROUP host 10.0.0.9',
+      ' key MyTacacsSecret',
+      'passwd 2KFQnbNIdI.2KYOU encrypted',
+    ].join('\n');
+    const parsed = parseASA(cfg);
+    const normalized = normalizeAsa(parsed.statements);
+    normalized.warnings = [...parsed.warnings, ...normalized.warnings];
+    const report = buildMigrationReport(normalized, validate(normalized), { sourceType: 'asa' });
+
+    const serialized = JSON.stringify(report);
+    for (const secret of ['MyIpsecPSK123', 'MyFailoverKey', 'MyTacacsSecret', '2KFQnbNIdI.2KYOU']) {
+      expect(serialized).not.toContain(secret);
+    }
+    // HA is still surfaced for review (just without the secret values).
+    expect(report.manualReview.some((m) => m.category === 'high-availability')).toBe(true);
+  });
+
   it('coverage samples mask credentials found in unsupported config lines', () => {
     const cfg = ['username admin password SuperSecret99', 'enable password 7 08221D5C0A1654'].join(
       '\n'
