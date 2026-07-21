@@ -111,13 +111,48 @@ export interface NormalizedVpn {
   siteToSite: NormalizedSiteToSiteVpn[];
 }
 
+/** Static route — converted to a Check Point Gaia static route. */
+export interface NormalizedRoute {
+  id: string;
+  destCidr: string;
+  nextHop: string;
+  interfaceName?: string;
+  metric?: number;
+}
+
+/** Dynamic routing (OSPF/BGP/EIGRP/RIP) — captured as review notes, not converted. */
+export interface NormalizedDynamicRouting {
+  protocol: string;
+  processOrAs?: string;
+  details: string[];
+}
+
+/** High availability (ASA failover) — review notes; recreate as ClusterXL / Gaia HA. */
+export interface NormalizedHa {
+  details: string[];
+}
+
+/** Advanced inspection (policy-map inspects, threat-detection) — review notes; map to Threat Prevention blades. */
+export interface NormalizedInspection {
+  policyMaps: { name: string; inspects: string[] }[];
+  threatDetection: string[];
+}
+
 export interface NormalizedResult {
   objects: NormalizedObject[];
   rules: NormalizedPolicyRule[];
   nat: NormalizedNATRule[];
   interfaces: NormalizedInterface[];
   zones: NormalizedZone[];
+  /** Static routes (convertible to Gaia static routes). */
+  routes?: NormalizedRoute[];
+  /** Dynamic routing protocols (review notes only). */
+  dynamicRouting?: NormalizedDynamicRouting[];
   /** Present only when the source defined VPN (ASA remote-access / site-to-site). */
   vpn?: NormalizedVpn;
+  /** ASA failover config detected (review notes only). */
+  ha?: NormalizedHa;
+  /** Inspection / threat-detection config detected (review notes only). */
+  inspection?: NormalizedInspection;
   warnings: string[];
 }

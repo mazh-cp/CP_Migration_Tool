@@ -220,6 +220,9 @@ model NormalizedData {
   interfacesJson      String
   zonesJson           String
   warningsJson        String
+  // Static routes (convertible) and VPN review notes (JSON). Default "[]"/"null" for existing rows.
+  routesJson          String   @default("[]")
+  vpnJson             String   @default("null")
   // Structured Fortinet→Check Point migration summary (JSON).
   migrationReportJson String   @default("{}")
   createdAt           DateTime @default(now())

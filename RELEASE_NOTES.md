@@ -1,5 +1,27 @@
 # Release Notes — Migrator
 
+## v1.6.0 (2026-07-21) — Coverage report, routing, VPN/HA/inspection notes, IPv6
+
+### Highlights
+
+- **Migration coverage report + Export-page panel:** converted counts, manual-review categories, and unsupported constructs grouped by command — the tool now tells you exactly what it did and did not migrate.
+- **Static routes convert to Gaia** (`set static-route` / `set ipv6 static-route`); dynamic routing (OSPF/BGP/EIGRP) becomes review notes.
+- **VPN review notes for all three vendors** (ASA, FortiGate, Palo Alto) exported as `vpn.notes.json`; pre-shared keys are never captured.
+- **HA (failover) and inspection (policy-map / threat-detection)** detected and flagged for ClusterXL / Threat Prevention planning.
+- **IPv6** across ASA (objects, routes, `any6`), FortiGate (`address6`/`addrgrp6`/`policy6`), and Palo Alto addresses.
+- **Nested object-groups** resolve order-independently (forward references, multi-level nesting).
+- **Security:** secret redaction repaired (previous regexes never matched) and enforced across warnings and report samples; routing/HA/VPN secrets are masked at parse time. Run `scripts/redact-normalized-data.ts` once to clean historical rows.
+
+### Upgrade
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.0 DOC_RELEASE_TAG=v1.6.0 bash
+```
+
+After upgrade: `cd apps/web && npx prisma db push` (additive `routesJson`/`vpnJson` columns) and optionally `npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/redact-normalized-data.ts`.
+
+---
+
 ## v1.3.1 (2026-03-24) — Fix curl-piped `upgrade-production.sh`
 
 ### Fix

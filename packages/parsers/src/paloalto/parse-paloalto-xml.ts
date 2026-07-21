@@ -6,6 +6,7 @@ import type {
   ObjectNetwork,
   ObjectService,
   ExplicitPolicyRule,
+  PanIkeGatewayStatement,
 } from '../asa/ast';
 import type { ASAParseResult } from '../asa/ast';
 import { preparePaloAltoInput } from './input-normalize';
@@ -30,7 +31,11 @@ function addressEntryToObjectNetwork(name: string, body: Record<string, unknown>
   if (typeof ipnm === 'string' && ipnm.includes('/')) {
     const [addr, pref] = ipnm.split('/');
     const p = parseInt(pref || '32', 10);
-    if (p === 32 && addr) return { type: 'object-network', name, host: addr };
+    const isV6 = !!addr && addr.includes(':');
+    // Host = /32 for IPv4, /128 for IPv6 (an IPv6 /32 is a network, not a host).
+    if (addr && ((p === 32 && !isV6) || (p === 128 && isV6))) {
+      return { type: 'object-network', name, host: addr };
+    }
     if (addr && !Number.isNaN(p)) {
       return { type: 'object-network', name, subnet: addr, subnetMask: String(p) };
     }
@@ -339,6 +344,38 @@ export function parsePaloAltoXmlDocument(content: string, prepNotes: string[] = 
       if (!nm) continue;
       const { ip, mask } = firstIpFromPanInterfaceEntry(ent);
       addPanInterface(nm, ip, mask);
+    }
+
+    // IKE gateways → site-to-site VPN review notes. Only structural fields are
+    // copied; the pre-shared-key value is never read out of the entry.
+    const ikeBlock = (net?.ike as Record<string, unknown> | undefined)?.gateway as
+      | Record<string, unknown>
+      | undefined;
+    if (ikeBlock?.entry) {
+      for (const ent of ensureArray(ikeBlock.entry as Record<string, unknown>[])) {
+        const nm = entryName(ent);
+        if (!nm) continue;
+        const peerAddr = ent['peer-address'] as Record<string, unknown> | undefined;
+        const peer =
+          typeof peerAddr?.ip === 'string'
+            ? peerAddr.ip
+            : typeof peerAddr?.fqdn === 'string'
+              ? peerAddr.fqdn
+              : undefined;
+        const localAddr = ent['local-address'] as Record<string, unknown> | undefined;
+        const auth = ent.authentication as Record<string, unknown> | undefined;
+        const st: PanIkeGatewayStatement = {
+          type: 'pan-ike-gateway',
+          name: qualify(vsysName, nm),
+          peer,
+          iface: typeof localAddr?.interface === 'string' ? localAddr.interface : undefined,
+          pskConfigured: auth != null && 'pre-shared-key' in auth,
+        };
+        statements.push(st);
+      }
+      warnings.push(
+        'Palo Alto IKE gateways captured as VPN review notes; recreate Check Point VPN communities manually (keys are never exported).'
+      );
     }
 
     const addressBlock = root.address as Record<string, unknown> | undefined;

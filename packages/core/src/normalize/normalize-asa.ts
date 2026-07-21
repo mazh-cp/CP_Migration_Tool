@@ -23,8 +23,20 @@ import type {
   GroupPolicyStatement,
   TunnelGroupStatement,
   CryptoMapStatement,
+  RouteStatement,
+  DynamicRoutingStatement,
+  HaStatement,
+  InspectionStatement,
+  FortinetVpnPhase1Statement,
+  PanIkeGatewayStatement,
 } from '@cisco2cp/parsers';
-import type { NormalizedVpn } from '../models/normalized';
+import type {
+  NormalizedVpn,
+  NormalizedRoute,
+  NormalizedDynamicRouting,
+  NormalizedHa,
+  NormalizedInspection,
+} from '../models/normalized';
 import { createId } from '../utils/id';
 import {
   ObjectRegistry,
@@ -68,17 +80,79 @@ export function normalizeAsa(statements: ASAAstNode[]): NormalizedResult {
   const groupPolicies = new Map<string, GroupPolicyStatement>();
   const tunnelGroups: TunnelGroupStatement[] = [];
   const cryptoMaps: CryptoMapStatement[] = [];
+  const routes: NormalizedRoute[] = [];
+  const dynamicRouting: NormalizedDynamicRouting[] = [];
+  const haDetails: string[] = [];
+  const inspectionPolicyMaps: NormalizedInspection['policyMaps'] = [];
+  const threatDetection: string[] = [];
+  const fortiVpnPhase1: FortinetVpnPhase1Statement[] = [];
+  const panIkeGateways: PanIkeGatewayStatement[] = [];
+  // Object groups are resolved in a second pass so nested / forward references resolve.
+  const groupNetStmts: ObjectGroupNetwork[] = [];
+  const groupSvcStmts: ObjectGroupService[] = [];
 
+  // Pass 1: plain objects, group shells (reserved by name), routing, and VPN collection.
+  // Reserving group shells up front lets nested / forward-referenced groups resolve
+  // regardless of definition order.
   for (const st of statements) {
     if (st.type === 'object-network') {
       normalizeObjectNetwork(st as ObjectNetwork);
-    } else if (st.type === 'object-group-network') {
-      normalizeObjectGroupNetwork(st as ObjectGroupNetwork, warnings);
     } else if (st.type === 'object-service') {
       normalizeObjectService(st as ObjectService);
+    } else if (st.type === 'object-group-network') {
+      const g = st as ObjectGroupNetwork;
+      registry.reserveGroupObject('group', g.name, undefined, g.lineNumber);
+      groupNetStmts.push(g);
     } else if (st.type === 'object-group-service') {
-      normalizeObjectGroupService(st as ObjectGroupService, warnings);
-    } else if (st.type === 'access-list-extended') {
+      const g = st as ObjectGroupService;
+      const proto = g.entries[0]?.type === 'port-object' ? g.entries[0].proto : 'tcp';
+      registry.reserveGroupObject('service-group', g.name, proto, g.lineNumber);
+      groupSvcStmts.push(g);
+    } else if (st.type === 'route') {
+      const r = st as RouteStatement;
+      // IPv6 routes carry a numeric prefix length in `mask`; IPv4 a dotted mask.
+      const prefix = r.mask.includes('.') ? maskToCidr(r.mask) : parseInt(r.mask, 10);
+      routes.push({
+        id: `route:${r.dest}/${prefix}:${r.nextHop}`,
+        destCidr: `${r.dest}/${prefix}`,
+        nextHop: r.nextHop,
+        interfaceName: r.ifName,
+        metric: r.metric,
+      });
+    } else if (st.type === 'dynamic-routing') {
+      const d = st as DynamicRoutingStatement;
+      dynamicRouting.push({ protocol: d.protocol, processOrAs: d.processOrAs, details: d.details });
+    } else if (st.type === 'ip-local-pool') {
+      ipLocalPools.set((st as IpLocalPoolStatement).name, st as IpLocalPoolStatement);
+    } else if (st.type === 'group-policy') {
+      groupPolicies.set((st as GroupPolicyStatement).name, st as GroupPolicyStatement);
+    } else if (st.type === 'tunnel-group') {
+      tunnelGroups.push(st as TunnelGroupStatement);
+    } else if (st.type === 'crypto-map') {
+      cryptoMaps.push(st as CryptoMapStatement);
+    } else if (st.type === 'fortinet-vpn-phase1') {
+      fortiVpnPhase1.push(st as FortinetVpnPhase1Statement);
+    } else if (st.type === 'pan-ike-gateway') {
+      panIkeGateways.push(st as PanIkeGatewayStatement);
+    } else if (st.type === 'ha-config') {
+      haDetails.push((st as HaStatement).detail);
+    } else if (st.type === 'inspection') {
+      const ins = st as InspectionStatement;
+      if (ins.source === 'policy-map') {
+        inspectionPolicyMaps.push({ name: ins.name ?? 'unnamed', inspects: ins.inspects });
+      } else {
+        threatDetection.push(...ins.inspects);
+      }
+    }
+  }
+
+  // Fill group members now that every object and group shell is registered.
+  for (const g of groupNetStmts) fillObjectGroupNetwork(g, warnings);
+  for (const g of groupSvcStmts) fillObjectGroupService(g, warnings);
+
+  // Pass 2: rules / NAT / interfaces / zones — object and group references now resolve.
+  for (const st of statements) {
+    if (st.type === 'access-list-extended') {
       const rule = normalizeAccessList(st as AccessListExtended);
       if (rule) rules.push(rule);
     } else if (st.type === 'nat') {
@@ -108,26 +182,52 @@ export function normalizeAsa(statements: ASAAstNode[]): NormalizedResult {
     } else if (st.type === 'explicit-policy-rule') {
       const rule = normalizeExplicitPolicyRule(st as ExplicitPolicyRule, warnings);
       if (rule) rules.push(rule);
-    } else if (st.type === 'ip-local-pool') {
-      const p = st as IpLocalPoolStatement;
-      ipLocalPools.set(p.name, p);
-    } else if (st.type === 'group-policy') {
-      const g = st as GroupPolicyStatement;
-      groupPolicies.set(g.name, g);
-    } else if (st.type === 'tunnel-group') {
-      tunnelGroups.push(st as TunnelGroupStatement);
-    } else if (st.type === 'crypto-map') {
-      cryptoMaps.push(st as CryptoMapStatement);
     }
   }
 
   // Objects come from registry (deterministic, deduped)
   objects.push(...registry.listAll());
 
-  const vpn = buildVpn(ipLocalPools, groupPolicies, tunnelGroups, cryptoMaps);
+  let vpn = buildVpn(ipLocalPools, groupPolicies, tunnelGroups, cryptoMaps);
+  // FortiGate IPsec phase1 and PAN IKE gateways are site-to-site notes in the same shape.
+  const vendorS2s = [
+    ...fortiVpnPhase1.map((p) => ({ name: p.name, peer: p.remoteGw, pskConfigured: p.pskConfigured })),
+    ...panIkeGateways.map((g) => ({ name: g.name, peer: g.peer, pskConfigured: g.pskConfigured })),
+  ];
+  if (vendorS2s.length > 0) {
+    vpn = vpn
+      ? { ...vpn, siteToSite: [...vpn.siteToSite, ...vendorS2s] }
+      : { remoteAccess: [], siteToSite: vendorS2s };
+  }
   if (vpn) warnings.push('VPN detected: exported as review notes; Check Point VPN requires manual recreation.');
+  if (dynamicRouting.length > 0)
+    warnings.push('Dynamic routing detected (OSPF/BGP/EIGRP): exported as review notes; configure Gaia routing manually.');
 
-  return { objects, rules, nat, interfaces, zones, ...(vpn ? { vpn } : {}), warnings };
+  const ha: NormalizedHa | undefined = haDetails.length > 0 ? { details: haDetails } : undefined;
+  if (ha)
+    warnings.push('Failover (HA) detected: exported as review notes; plan ClusterXL / Gaia clustering manually.');
+  const inspection: NormalizedInspection | undefined =
+    inspectionPolicyMaps.length > 0 || threatDetection.length > 0
+      ? { policyMaps: inspectionPolicyMaps, threatDetection }
+      : undefined;
+  if (inspection)
+    warnings.push(
+      'Inspection / threat-detection detected: exported as review notes; map to Check Point Threat Prevention blades manually.'
+    );
+
+  return {
+    objects,
+    rules,
+    nat,
+    interfaces,
+    zones,
+    ...(routes.length > 0 ? { routes } : {}),
+    ...(dynamicRouting.length > 0 ? { dynamicRouting } : {}),
+    ...(vpn ? { vpn } : {}),
+    ...(ha ? { ha } : {}),
+    ...(inspection ? { inspection } : {}),
+    warnings,
+  };
 }
 
 /** Assemble VPN review notes from ASA VPN statements. Returns undefined when no VPN present. */
@@ -229,6 +329,14 @@ function normalizeObjectNetwork(st: ObjectNetwork): void {
       value: st.host,
       sourceLine: st.lineNumber,
     });
+  } else if (st.subnet && !st.subnetMask && st.subnet.includes('/')) {
+    // IPv6 (or pre-joined CIDR) subnet: `subnet 2001:db8::/64` — single token.
+    registry.createOrGetNetworkObject(`net:subnet:${st.subnet}`, {
+      type: 'network',
+      name: st.name,
+      value: st.subnet,
+      sourceLine: st.lineNumber,
+    });
   } else if (st.subnet && st.subnetMask) {
     const maskNum = st.subnetMask.includes('.')
       ? maskToCidr(st.subnetMask)
@@ -260,14 +368,16 @@ function normalizeObjectNetwork(st: ObjectNetwork): void {
   }
 }
 
-function normalizeObjectGroupNetwork(st: ObjectGroupNetwork, warnings: string[]): void {
+function fillObjectGroupNetwork(st: ObjectGroupNetwork, warnings: string[]): void {
+  const selfId = registry.reserveGroupObject('group', st.name);
   const members: string[] = [];
 
   for (const e of st.entries) {
     if (e.type === 'object') {
       const id = registry.resolveByName(e.name);
-      if (id) members.push(id);
-      else warnings.push(`Object group ${st.name}: unknown object reference ${e.name}`);
+      if (!id) warnings.push(`Object group ${st.name}: unknown object reference ${e.name}`);
+      else if (id === selfId) warnings.push(`Object group ${st.name}: skipped self-reference`);
+      else members.push(id);
     } else if (e.type === 'host' && e.host) {
       const id = registry.createOrGetNetworkObject(`net:host:${e.host}`, {
         type: 'host',
@@ -300,12 +410,7 @@ function normalizeObjectGroupNetwork(st: ObjectGroupNetwork, warnings: string[])
     }
   }
 
-  registry.createOrGetGroupObject(`grp:network:${st.name}`, {
-    type: 'group',
-    name: st.name,
-    members,
-    sourceLine: st.lineNumber,
-  });
+  registry.setGroupMembers(selfId, members);
 }
 
 function normalizeObjectService(st: ObjectService): void {
@@ -319,15 +424,17 @@ function normalizeObjectService(st: ObjectService): void {
   });
 }
 
-function normalizeObjectGroupService(st: ObjectGroupService, warnings: string[]): void {
-  const members: string[] = [];
+function fillObjectGroupService(st: ObjectGroupService, warnings: string[]): void {
   const proto = st.entries[0]?.type === 'port-object' ? st.entries[0].proto : 'tcp';
+  const selfId = registry.reserveGroupObject('service-group', st.name, proto);
+  const members: string[] = [];
 
   for (const e of st.entries) {
     if (e.type === 'service-object') {
       const id = registry.resolveByName(e.name);
-      if (id) members.push(id);
-      else warnings.push(`Service group ${st.name}: unknown service reference ${e.name}`);
+      if (!id) warnings.push(`Service group ${st.name}: unknown service reference ${e.name}`);
+      else if (id === selfId) warnings.push(`Service group ${st.name}: skipped self-reference`);
+      else members.push(id);
     } else if (e.type === 'port-object') {
       const key = createServiceKey(e.proto, e.port, e.range);
       const name = e.port
@@ -342,17 +449,11 @@ function normalizeObjectGroupService(st: ObjectGroupService, warnings: string[])
       members.push(id);
     } else if ('type' in e && e.type === 'group-object') {
       const id = registry.resolveByName((e as { name: string }).name);
-      if (id) members.push(id);
+      if (id && id !== selfId) members.push(id);
     }
   }
 
-  registry.createOrGetGroupObject(`grp:service:${st.name}`, {
-    type: 'service-group',
-    name: st.name,
-    members,
-    proto,
-    sourceLine: st.lineNumber,
-  });
+  registry.setGroupMembers(selfId, members);
 }
 
 function resolveServiceFromAccessList(st: AccessListExtended): string[] {
@@ -502,14 +603,10 @@ function normalizeAccessList(st: AccessListExtended): NormalizedPolicyRule | nul
   const id = createId();
   const srcKey = st.src?.trim() || '';
   const dstKey = st.dst?.trim() || '';
-  const srcRefs =
-    !srcKey || srcKey.toLowerCase() === 'any'
-      ? [ANY_NET_ID]
-      : [resolveNetworkRef(srcKey)];
-  const dstRefs =
-    !dstKey || dstKey.toLowerCase() === 'any'
-      ? [ANY_NET_ID]
-      : [resolveNetworkRef(dstKey)];
+  // ASA `any` variants: any = both families, any4 = IPv4-only, any6 = IPv6-only.
+  const isAny = (k: string) => ['any', 'any4', 'any6'].includes(k.toLowerCase());
+  const srcRefs = !srcKey || isAny(srcKey) ? [ANY_NET_ID] : [resolveNetworkRef(srcKey)];
+  const dstRefs = !dstKey || isAny(dstKey) ? [ANY_NET_ID] : [resolveNetworkRef(dstKey)];
   const serviceRefs = resolveServiceFromAccessList(st);
 
   return {

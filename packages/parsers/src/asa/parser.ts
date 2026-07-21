@@ -13,6 +13,10 @@ import type {
   GroupPolicyStatement,
   TunnelGroupStatement,
   CryptoMapStatement,
+  RouteStatement,
+  DynamicRoutingStatement,
+  HaStatement,
+  InspectionStatement,
 } from './ast';
 
 export function parseASA(content: string): ASAParseResult {
@@ -113,8 +117,147 @@ function parseLine(lines: string[], startIdx: number, line: string): ParseLineRe
     if (obj) return { statement: obj, consumed: 1 };
     return { consumed: 1 };
   }
+  if (cmd === 'route') {
+    const obj = parseRoute(line, startIdx + 1);
+    if (obj) return { statement: obj, consumed: 1 };
+  }
+  if (cmd === 'ipv6' && parts[1]?.toLowerCase() === 'route') {
+    const obj = parseIpv6Route(line, startIdx + 1);
+    if (obj) return { statement: obj, consumed: 1 };
+  }
+  if (cmd === 'router') {
+    return parseDynamicRouting(lines, startIdx);
+  }
+  if (cmd === 'failover') {
+    return {
+      statement: {
+        type: 'ha-config',
+        detail: maskSecretTokens(line),
+        raw: maskSecretTokens(line),
+        lineNumber: startIdx + 1,
+      } as HaStatement,
+      consumed: 1,
+    };
+  }
+  if (cmd === 'policy-map') {
+    return parsePolicyMapInspection(lines, startIdx);
+  }
+  if (cmd === 'threat-detection') {
+    return {
+      statement: {
+        type: 'inspection',
+        source: 'threat-detection',
+        inspects: [line.trim()],
+        raw: line,
+        lineNumber: startIdx + 1,
+      } as InspectionStatement,
+      consumed: 1,
+    };
+  }
 
   throw new Error('Unsupported');
+}
+
+/**
+ * Capture `inspect <proto>` lines from a policy-map block as inspection review
+ * notes. The block is consumed either way; a statement is emitted only when at
+ * least one inspect line is present (police / set-connection-only maps are noise).
+ */
+function parsePolicyMapInspection(lines: string[], startIdx: number): ParseLineResult {
+  const first = lines[startIdx];
+  const m = first.match(/policy-map\s+(?:type\s+\S+\s+)?(\S+)/i);
+  const bodyCount = countIndentedBlockLines(lines, startIdx);
+  if (!m) return { consumed: 1 + bodyCount };
+
+  const inspects: string[] = [];
+  for (let i = startIdx + 1; i <= startIdx + bodyCount; i++) {
+    const t = lines[i].trim();
+    const im = t.match(/^inspect\s+(\S+)/i);
+    if (im) inspects.push(im[1].toLowerCase());
+  }
+  if (inspects.length === 0) return { consumed: 1 + bodyCount };
+  return {
+    statement: {
+      type: 'inspection',
+      source: 'policy-map',
+      name: m[1],
+      inspects,
+      raw: first,
+      lineNumber: startIdx + 1,
+    } as InspectionStatement,
+    consumed: 1 + bodyCount,
+  };
+}
+
+function parseRoute(line: string, ln: number): RouteStatement | null {
+  // route IFNAME dest mask nexthop [metric] [track N]
+  const m = line.match(/route\s+(\S+)\s+(\d+\.\d+\.\d+\.\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(\d+\.\d+\.\d+\.\d+)(?:\s+(\d+))?/i);
+  if (!m) return null;
+  return {
+    type: 'route',
+    ifName: m[1],
+    dest: m[2],
+    mask: m[3],
+    nextHop: m[4],
+    metric: m[5] ? parseInt(m[5], 10) : undefined,
+    raw: line,
+    lineNumber: ln,
+  };
+}
+
+function parseIpv6Route(line: string, ln: number): RouteStatement | null {
+  // ipv6 route IFNAME dest/prefix nexthop [metric]
+  const m = line.match(/ipv6\s+route\s+(\S+)\s+([0-9a-f:]+\/\d{1,3})\s+([0-9a-f:]+)(?:\s+(\d+))?/i);
+  if (!m) return null;
+  // dest already carries the prefix; mask field stores the prefix length.
+  const [dest, prefix] = m[2].split('/');
+  return {
+    type: 'route',
+    ifName: m[1],
+    dest,
+    mask: prefix ?? '128',
+    nextHop: m[3],
+    metric: m[4] ? parseInt(m[4], 10) : undefined,
+    raw: line,
+    lineNumber: ln,
+  };
+}
+
+/**
+ * Mask credential tokens (BGP neighbor passwords, OSPF authentication /
+ * message-digest keys, failover keys) before capture — the secret value is
+ * never stored, mirroring the tunnel-group `pskConfigured` approach. Kept
+ * local because @cisco2cp/core (which owns redactSecrets) depends on this
+ * package.
+ */
+function maskSecretTokens(line: string): string {
+  return line
+    .replace(/\b(password(?:\s+\d+)?\s+)\S+/gi, '$1***')
+    .replace(/\b(authentication-key(?:\s+\d+)?\s+)\S+/gi, '$1***')
+    .replace(/\b(message-digest-key\s+\d+\s+md5\s+)\S+/gi, '$1***')
+    .replace(/\b(failover\s+key\s+(?:hexadecimal\s+)?)\S+/gi, '$1***');
+}
+
+function parseDynamicRouting(lines: string[], startIdx: number): ParseLineResult {
+  const first = lines[startIdx];
+  const m = first.match(/router\s+(ospf|bgp|eigrp|rip)\s*(\S+)?/i);
+  if (!m) return { consumed: 1 };
+  const obj: DynamicRoutingStatement = {
+    type: 'dynamic-routing',
+    protocol: m[1].toLowerCase() as DynamicRoutingStatement['protocol'],
+    processOrAs: m[2],
+    details: [],
+    raw: first,
+    lineNumber: startIdx + 1,
+  };
+  const bodyCount = countIndentedBlockLines(lines, startIdx);
+  for (let i = startIdx + 1; i <= startIdx + bodyCount; i++) {
+    const t = lines[i].trim();
+    if (/^(network|neighbor|router-id|redistribute|area|passive-interface|autonomous-system)\b/i.test(t)) {
+      obj.details.push(maskSecretTokens(t));
+    }
+  }
+  return { statement: obj, consumed: 1 + bodyCount };
 }
 
 /** Number of following lines that are indented attributes of a block command. */

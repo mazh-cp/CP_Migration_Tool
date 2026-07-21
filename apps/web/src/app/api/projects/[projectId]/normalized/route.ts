@@ -21,6 +21,14 @@ export async function GET(
     migrationReport = {};
   }
 
+  const safe = <T,>(json: string | null | undefined, fallback: T): T => {
+    try {
+      return json ? (JSON.parse(json) as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   return NextResponse.json({
     objects: JSON.parse(data.objectsJson),
     rules: JSON.parse(data.rulesJson),
@@ -28,6 +36,8 @@ export async function GET(
     interfaces: JSON.parse(data.interfacesJson),
     zones: JSON.parse(data.zonesJson),
     warnings: JSON.parse(data.warningsJson),
+    routes: safe(data.routesJson, [] as unknown[]),
+    vpn: safe(data.vpnJson, null as unknown),
     migrationReport,
   });
 }

@@ -131,6 +131,32 @@ export interface FortinetIppoolStatement extends ASAStatement {
   endip?: string;
 }
 
+/**
+ * FortiGate `config vpn ipsec phase1-interface` entry — captured as a
+ * site-to-site VPN review note. `pskConfigured` records only that a psksecret
+ * was present; the secret value is never captured.
+ */
+export interface FortinetVpnPhase1Statement extends ASAStatement {
+  type: 'fortinet-vpn-phase1';
+  name: string;
+  remoteGw?: string;
+  iface?: string;
+  proposal?: string;
+  pskConfigured?: boolean;
+}
+
+/**
+ * PAN-OS `network/ike/gateway` entry — captured as a site-to-site VPN review
+ * note. `pskConfigured` is a presence flag; the key value is never captured.
+ */
+export interface PanIkeGatewayStatement extends ASAStatement {
+  type: 'pan-ike-gateway';
+  name: string;
+  peer?: string;
+  iface?: string;
+  pskConfigured?: boolean;
+}
+
 /** ASA `ip local pool` — remote-access VPN address pool. */
 export interface IpLocalPoolStatement extends ASAStatement {
   type: 'ip-local-pool';
@@ -179,6 +205,39 @@ export type ASAVpnStatement =
   | TunnelGroupStatement
   | CryptoMapStatement;
 
+/** ASA `failover ...` line — HA config captured as review notes (key values masked). */
+export interface HaStatement extends ASAStatement {
+  type: 'ha-config';
+  detail: string;
+}
+
+/** ASA inspection config (policy-map inspects / threat-detection) — review notes only. */
+export interface InspectionStatement extends ASAStatement {
+  type: 'inspection';
+  source: 'policy-map' | 'threat-detection';
+  name?: string;
+  inspects: string[];
+}
+
+/** ASA static route: `route IFNAME dest mask nexthop [metric]`. */
+export interface RouteStatement extends ASAStatement {
+  type: 'route';
+  ifName: string;
+  dest: string;
+  mask: string;
+  nextHop: string;
+  metric?: number;
+}
+
+/** ASA dynamic routing block header: `router ospf|bgp|eigrp ID` (captured as review notes). */
+export interface DynamicRoutingStatement extends ASAStatement {
+  type: 'dynamic-routing';
+  protocol: 'ospf' | 'bgp' | 'eigrp' | 'rip';
+  processOrAs?: string;
+  /** Selected sub-lines (network / neighbor / router-id) kept verbatim for review. */
+  details: string[];
+}
+
 export type ASAAstNode =
   | ObjectNetwork
   | ObjectGroupNetwork
@@ -191,7 +250,13 @@ export type ASAAstNode =
   | ExplicitPolicyRule
   | FortinetVipStatement
   | FortinetIppoolStatement
+  | FortinetVpnPhase1Statement
+  | PanIkeGatewayStatement
   | ASAVpnStatement
+  | RouteStatement
+  | DynamicRoutingStatement
+  | HaStatement
+  | InspectionStatement
   | ASAStatement;
 
 export interface ASAParseResult {

@@ -160,3 +160,148 @@ access-list CSM_FW_ACL_ advanced permit ip object-group G1 object-group G2 rule-
     expect(result.ok).toBe(true);
   });
 });
+
+describe('ASA routing + nested groups + coverage (Phase 0/1)', () => {
+  it('normalizes static routes and captures dynamic routing as notes', () => {
+    const cfg = [
+      'route outside 0.0.0.0 0.0.0.0 203.0.113.1 1',
+      'route inside 10.20.0.0 255.255.0.0 10.0.0.254',
+      'router ospf 1',
+      ' network 10.0.0.0 255.0.0.0 area 0',
+      ' router-id 10.0.0.1',
+    ].join('\n');
+    const normalized = normalizeAsa(parseASA(cfg).statements);
+    expect(normalized.routes).toHaveLength(2);
+    const def = normalized.routes?.find((r) => r.destCidr === '0.0.0.0/0');
+    expect(def?.nextHop).toBe('203.0.113.1');
+    expect(normalized.routes?.some((r) => r.destCidr === '10.20.0.0/16')).toBe(true);
+    expect(normalized.dynamicRouting?.[0]?.protocol).toBe('ospf');
+    expect(normalized.dynamicRouting?.[0]?.details.some((d) => d.startsWith('network'))).toBe(true);
+  });
+
+  it('resolves forward-referenced and nested object-groups (order-independent)', () => {
+    // OUTER references INNER before INNER is defined.
+    const cfg = [
+      'object-group network OUTER',
+      ' group-object INNER',
+      ' network-object host 192.168.1.1',
+      'object-group network INNER',
+      ' network-object host 10.0.0.1',
+    ].join('\n');
+    const normalized = normalizeAsa(parseASA(cfg).statements);
+    const outer = normalized.objects.find((o) => o.name === 'OUTER');
+    const inner = normalized.objects.find((o) => o.name === 'INNER');
+    expect(outer?.members).toContain(inner?.id);
+    // No "unknown object reference" warning for the forward reference.
+    expect(normalized.warnings.some((w) => /unknown object reference INNER/i.test(w))).toBe(false);
+  });
+
+  it('coverage report groups unsupported lines and counts converted entities', () => {
+    const cfg = [
+      'object network HOST-A',
+      ' host 192.168.1.10',
+      'route outside 0.0.0.0 0.0.0.0 203.0.113.1',
+      'logging enable',
+      'snmp-server host inside 10.0.0.5',
+      'mtu outside 1500',
+    ].join('\n');
+    const parsed = parseASA(cfg);
+    const normalized = normalizeAsa(parsed.statements);
+    normalized.warnings = [...parsed.warnings, ...normalized.warnings];
+    const report = buildMigrationReport(normalized, validate(normalized), { sourceType: 'asa' });
+    expect(report.coverage.converted.routes).toBe(1);
+    expect(report.coverage.unsupportedTotal).toBeGreaterThanOrEqual(3);
+    const commands = report.coverage.unsupported.map((u) => u.command);
+    expect(commands).toContain('logging');
+    expect(commands).toContain('snmp-server');
+    expect(commands).toContain('mtu');
+  });
+
+  it('captures HA and inspection as review notes in normalized result and report', () => {
+    const cfg = [
+      'failover',
+      'failover lan unit primary',
+      'policy-map global_policy',
+      ' class inspection_default',
+      '  inspect dns',
+      '  inspect ftp',
+      'threat-detection basic-threat',
+    ].join('\n');
+    const normalized = normalizeAsa(parseASA(cfg).statements);
+    expect(normalized.ha?.details).toHaveLength(2);
+    expect(normalized.inspection?.policyMaps[0]?.inspects).toEqual(['dns', 'ftp']);
+    expect(normalized.inspection?.threatDetection).toHaveLength(1);
+
+    const report = buildMigrationReport(normalized, validate(normalized), { sourceType: 'asa' });
+    const categories = report.manualReview.map((m) => m.category);
+    expect(categories).toContain('high-availability');
+    expect(categories).toContain('inspection');
+    // Coverage badges roll up from manualReview.
+    const noteCategories = report.coverage.reviewNotes.map((n) => n.category);
+    expect(noteCategories).toContain('high-availability');
+    expect(noteCategories).toContain('inspection');
+  });
+
+  it('handles IPv6: routes, prefix-style objects, and any6 in ACLs', () => {
+    const cfg = [
+      'ipv6 route outside 2001:db8:abcd::/48 2001:db8::1',
+      'object network NET6',
+      ' subnet 2001:db8:1::/64',
+      'object network HOST6',
+      ' host 2001:db8::10',
+      'access-list V6 extended permit tcp any6 host 2001:db8::10 eq 443',
+    ].join('\n');
+    const normalized = normalizeAsa(parseASA(cfg).statements);
+
+    expect(normalized.routes?.[0]?.destCidr).toBe('2001:db8:abcd::/48');
+    expect(normalized.routes?.[0]?.nextHop).toBe('2001:db8::1');
+
+    const net6 = normalized.objects.find((o) => o.name === 'NET6');
+    expect(net6?.value).toBe('2001:db8:1::/64');
+    const host6 = normalized.objects.find((o) => o.name === 'HOST6');
+    expect(host6?.value).toBe('2001:db8::10');
+
+    // any6 maps to the builtin ANY, not a placeholder object
+    expect(normalized.rules[0]?.sourceRefs).toEqual([ANY_NET_ID]);
+    expect(normalized.objects.some((o) => o.name.toLowerCase() === 'any6')).toBe(false);
+  });
+
+  it('merges PAN IKE gateways into site-to-site notes', () => {
+    const statements = [
+      { type: 'pan-ike-gateway', name: 'gw-hq', peer: '198.51.100.99', pskConfigured: true },
+    ];
+    const normalized = normalizeAsa(statements as never);
+    expect(normalized.vpn?.siteToSite[0]?.peer).toBe('198.51.100.99');
+    expect(normalized.vpn?.siteToSite[0]?.pskConfigured).toBe(true);
+  });
+
+  it('merges FortiGate phase1-interface VPN into site-to-site notes', () => {
+    const cfg = `
+config vpn ipsec phase1-interface
+    edit "to-hq"
+        set remote-gw 198.51.100.7
+        set psksecret ENC AbCdEf==
+    next
+end
+`;
+    const normalized = normalizeAsa(parseFortinetConfig(cfg).statements);
+    expect(normalized.vpn?.siteToSite).toHaveLength(1);
+    expect(normalized.vpn?.siteToSite[0]?.peer).toBe('198.51.100.7');
+    expect(normalized.vpn?.siteToSite[0]?.pskConfigured).toBe(true);
+    expect(JSON.stringify(normalized.vpn)).not.toContain('AbCdEf');
+  });
+
+  it('coverage samples mask credentials found in unsupported config lines', () => {
+    const cfg = ['username admin password SuperSecret99', 'enable password 7 08221D5C0A1654'].join(
+      '\n'
+    );
+    const parsed = parseASA(cfg);
+    const normalized = normalizeAsa(parsed.statements);
+    normalized.warnings = [...parsed.warnings, ...normalized.warnings];
+    const report = buildMigrationReport(normalized, validate(normalized), { sourceType: 'asa' });
+    const serialized = JSON.stringify(report.coverage.unsupported);
+    expect(serialized).not.toContain('SuperSecret99');
+    expect(serialized).not.toContain('08221D5C0A1654');
+    expect(serialized).toContain('***');
+  });
+});

@@ -15,7 +15,9 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      // Own-package build first: Next.js typecheck includes .next/types, which
+      // `next build` regenerates (and cleans) — running them in parallel races.
+      "dependsOn": ["build"]
     },
     "dev": {
       "cache": false,

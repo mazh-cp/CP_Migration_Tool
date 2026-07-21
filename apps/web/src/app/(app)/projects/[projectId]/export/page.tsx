@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { MigrationCoverage } from '@/components/migration-coverage';
 
 export type ExportTarget = 'sms' | 'gateway' | 'both';
 export type SmsFormat = 'mgmt-api' | 'smartconsole' | 'both';
@@ -53,6 +54,10 @@ export default function ExportPage() {
       <p className="text-slate-400 mb-6">
         Choose export target and format. SMS = policy objects and rules for Check Point Management. Gateway = Gaia interface/route commands.
       </p>
+
+      <div className="mb-8">
+        <MigrationCoverage projectId={projectId} />
+      </div>
 
       <div className="space-y-6 mb-6 max-w-md">
         <div>
