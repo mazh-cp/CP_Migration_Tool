@@ -145,6 +145,21 @@ describe('ASA Parser', () => {
     expect(ha.some((h) => h.detail.includes('failover key hexadecimal ***'))).toBe(true);
   });
 
+  it('masks failover ipsec pre-shared-key and level-digit failover key', () => {
+    const cfg = [
+      'failover',
+      'failover key 0 MyFailoverKey',
+      'failover ipsec pre-shared-key MyIpsecPSK123',
+    ].join('\n');
+    const ha = parseASA(cfg).statements.filter(
+      (s) => (s as { type: string }).type === 'ha-config'
+    ) as Array<{ detail: string }>;
+    const serialized = JSON.stringify(ha);
+    expect(serialized).not.toContain('MyFailoverKey');
+    expect(serialized).not.toContain('MyIpsecPSK123');
+    expect(ha.some((h) => h.detail.includes('pre-shared-key ***'))).toBe(true);
+  });
+
   it('captures policy-map inspects and threat-detection as inspection notes', () => {
     const cfg = [
       'policy-map global_policy',
