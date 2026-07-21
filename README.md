@@ -4,7 +4,7 @@
 
 Convert Cisco ASA, FTD, or Fortinet FortiGate configurations to Check Point equivalents. Modular, explainable, safe-by-default.
 
-**Version:** 1.5.3  
+**Version:** 1.6.0  
 **Repository:** https://github.com/mazh-cp/CP_Migration_Tool
 
 ---
@@ -137,7 +137,7 @@ Run **on the Ubuntu server** (SSH session on the VM). `sudo` does not keep `BRAN
 **Pinned release (recommended):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo env BRANCH=v1.5.3 DOC_RELEASE_TAG=v1.5.3 bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.0 DOC_RELEASE_TAG=v1.6.0 bash
 ```
 
 **Latest `main`:**
@@ -149,7 +149,7 @@ curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/depl
 **Alternate pinned form** (`bash -s` passes the ref into the wrapper):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo bash -s -- v1.5.3
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.0/deploy/upgrade-production.sh | sudo bash -s -- v1.6.0
 ```
 
 Full options, laptop one-liner via SSH, and troubleshooting: [deploy/UPGRADE.md](deploy/UPGRADE.md), [REMOTE_INSTALL.md](REMOTE_INSTALL.md), [DEPLOYMENT.md](DEPLOYMENT.md).
@@ -229,8 +229,13 @@ See [SECURITY.md](SECURITY.md) for details.
 ## Known Limitations
 
 - Reports page is placeholder
-- Routing protocols and complex object-group nesting not supported
-- ASA VPN (remote-access + site-to-site) is parsed and exported as **review notes** (`vpn.notes`) at the library layer — pre-shared keys are never captured; Check Point VPN communities still require manual recreation. Web-export/UI wiring for the notes is pending.
+- **Static routing** is converted to Gaia `set static-route` commands; **dynamic routing** (OSPF/BGP/EIGRP) is captured as review notes for manual Gaia setup
+- **Object-group nesting** resolves order-independently (forward references and multi-level nesting), with warnings for unknown or self-referencing members
+- **ASA VPN** (remote-access + site-to-site) is parsed and exported as **review notes** (`vpn.notes.json` in the export bundle) — pre-shared keys are never captured; Check Point VPN communities still require manual recreation
+- Every parse produces a **coverage report** (in the migration report): converted counts, review-note categories, and unsupported source constructs grouped by command — nothing is silently dropped
+- **High availability** (ASA failover) and **advanced inspection** (policy-map inspects, threat-detection) are detected and captured as review notes in the migration report — plan ClusterXL/Gaia clustering and Threat Prevention blade mapping manually; failover keys are masked
+- **FortiGate IPsec VPN** (`vpn ipsec phase1-interface`) and **Palo Alto IKE gateways** are captured as site-to-site review notes (peer, interface, PSK presence — never the secret)
+- **IPv6**: ASA (`ipv6 route`, IPv6 objects, `any6` ACLs → Gaia `set ipv6 static-route`), FortiGate (`address6`/`addrgrp6`/`policy6`), and Palo Alto IPv6 addresses are supported; IPv6 interface addressing and IPv6 NAT remain manual
 - SQLite for dev/single-node; use PostgreSQL for production scale
 - FTD JSON schema support is limited
 

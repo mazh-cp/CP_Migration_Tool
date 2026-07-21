@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-21
+
+### Added
+
+- **Migration coverage report:** every parse now produces a `coverage` section in the migration report — converted counts (objects, rules, NAT, routes, interfaces, zones), review-note categories, and unsupported source constructs grouped by command with samples. Nothing is silently dropped. A **Migration coverage panel** on the Export page surfaces it in the UI.
+- **Static routing:** ASA `route` and `ipv6 route` are parsed and exported as Gaia `set static-route` / `set ipv6 static-route` commands. Dynamic routing (OSPF/BGP/EIGRP/RIP) is captured as review notes and emitted as Gaia comments.
+- **VPN review notes across vendors:** ASA remote-access + site-to-site (tunnel-groups, group-policies, crypto maps, pools), FortiGate `vpn ipsec phase1-interface`, and Palo Alto `network/ike/gateway` are captured as `vpn.notes.json` in export bundles and shown on the Export page. Pre-shared keys are never captured or exported — only a presence flag.
+- **High availability + inspection notes (ASA):** `failover` config (keys masked) and `policy-map` inspects / `threat-detection` are captured as `high-availability` and `inspection` manual-review items recommending ClusterXL/Gaia clustering and Threat Prevention blade mapping.
+- **IPv6:** ASA IPv6 objects (`subnet 2001:db8::/64`, IPv6 hosts) and `any4`/`any6` ACL keywords; FortiGate `address6` / `addrgrp6` / `policy6`; Palo Alto IPv6 `ip-netmask` host/network classification (`/128` host vs `/32` network).
+- **`scripts/redact-normalized-data.ts`:** one-off backfill that re-runs secret redaction over existing `NormalizedData` rows (`--dry-run` supported).
+
+### Changed
+
+- **Object-group nesting (ASA):** groups now resolve order-independently via two-pass normalization — forward references and multi-level nesting work; unknown and self-references produce warnings instead of silent drops.
+- **Normalized/export APIs** return `routes` and `vpn`; `NormalizedData` gains additive `routesJson` / `vpnJson` columns (run `npx prisma db push` — non-destructive).
+- **Turborepo:** `typecheck` now depends on the package's own `build`, fixing an intermittent `TS6053` race between Next.js typecheck and `.next` cleaning.
+
+### Security
+
+- **`redactSecrets` repaired and enforced:** previous patterns used PCRE-only `\K` (never matched in JavaScript). Rewritten with capture groups (enable secrets, passwords, SNMP communities, PSKs, OSPF/BGP auth keys, ISAKMP keys, PEM blocks) and now applied to parse warnings and coverage-report samples before persistence and API exposure.
+- **Secrets never captured at parse time:** BGP neighbor passwords, OSPF authentication/message-digest keys, and `failover key` values are masked (`***`) in captured routing/HA notes; FortiGate `psksecret` and PAN IKE pre-shared keys are recorded as presence flags only.
+
 ## [1.5.3] - 2026-04-09
 
 ### Changed
