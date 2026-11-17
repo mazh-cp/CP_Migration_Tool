@@ -97,6 +97,8 @@ export default function SettingsPage() {
   const [resetPasswordError, setResetPasswordError] = useState('');
   const [resetPasswordSaving, setResetPasswordSaving] = useState(false);
   const [resetPasswordMessage, setResetPasswordMessage] = useState('');
+  const [userDeletingId, setUserDeletingId] = useState<string | null>(null);
+  const [deleteUserError, setDeleteUserError] = useState('');
 
   // SSO
   const [ssoEnabled, setSsoEnabled] = useState(false);
@@ -241,6 +243,27 @@ export default function SettingsPage() {
     setResetPasswordValue('');
     setResetPasswordError('');
     setResetPasswordMessage('');
+  }
+
+  async function handleDeleteUser(user: User) {
+    setDeleteUserError('');
+    const confirmed = window.confirm(
+      `Delete user "${user.username}"? Their sessions will be revoked and they will lose access to this tenant.`
+    );
+    if (!confirmed) return;
+    setUserDeletingId(user.id);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeleteUserError(data.error || 'Failed to delete user');
+        return;
+      }
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      if (passwordResetUserId === user.id) cancelPasswordReset();
+    } finally {
+      setUserDeletingId(null);
+    }
   }
 
   async function handleAdminPasswordReset(e: React.FormEvent, userId: string, username: string) {
@@ -654,7 +677,7 @@ export default function SettingsPage() {
             Add users and set <strong>tenant roles</strong>. <strong>Tenant admin</strong> can manage users, SSO, and project membership within this tenant only.
             <strong className="text-slate-300"> Platform administrator</strong> (the env bootstrap account) additionally controls application-wide AI and LiteLLM settings — that role is not assignable here.
             {' '}
-            <strong>Member</strong> and <strong>viewer</strong> have project access only.
+            <strong>Member</strong> and <strong>viewer</strong> have project access only. Tenant admins can <strong>delete</strong> users (not themselves or the platform administrator).
           </p>
           {isAdmin && !isPlatformAdmin && (
             <p className="text-slate-500 text-xs mb-3 border border-slate-600/60 rounded-lg px-3 py-2 bg-slate-800/30">
@@ -722,6 +745,7 @@ export default function SettingsPage() {
                         <th className="px-4 py-2 font-medium">Email</th>
                         <th className="px-4 py-2 font-medium">Role</th>
                         <th className="px-4 py-2 font-medium">Password</th>
+                        <th className="px-4 py-2 font-medium w-24">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -800,12 +824,25 @@ export default function SettingsPage() {
                               </button>
                             )}
                           </td>
+                          <td className="px-4 py-2 align-top">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteUser(u)}
+                              disabled={userDeletingId === u.id}
+                              className="flex items-center gap-1 text-xs text-danger hover:text-red-300 disabled:opacity-50"
+                              title="Remove user from tenant"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Delete
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 )}
               </div>
+              {deleteUserError && <p className="text-danger text-sm mt-2">{deleteUserError}</p>}
             </div>}
 
             <div>

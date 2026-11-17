@@ -100,3 +100,74 @@ export async function PATCH(
     passwordReset: hasPassword || undefined,
   });
 }
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  const session = await requireTenantSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  const { userId } = await params;
+  if (userId === session.userId) {
+    return NextResponse.json({ error: 'You cannot delete your own account' }, { status: 400 });
+  }
+
+  const guard = await assertTenantAdminCanManageUser(session, userId);
+  if (!guard.ok) {
+    return NextResponse.json({ error: guard.error }, { status: guard.status });
+  }
+
+  const membership = await prisma.tenantMembership.findUnique({
+    where: { tenantId_userId: { tenantId: session.tenantId, userId } },
+    include: { user: { select: { id: true, username: true } } },
+  });
+  if (!membership || membership.status !== 'active') {
+    return NextResponse.json({ error: 'User not found in this tenant' }, { status: 404 });
+  }
+
+  if (membership.role === 'admin') {
+    const adminCount = await prisma.tenantMembership.count({
+      where: { tenantId: session.tenantId, role: 'admin', status: 'active' },
+    });
+    if (adminCount <= 1) {
+      return NextResponse.json(
+        { error: 'Cannot delete the last tenant administrator for this tenant' },
+        { status: 400 }
+      );
+    }
+  }
+
+  const otherMemberships = await prisma.tenantMembership.count({
+    where: { userId, status: 'active', NOT: { id: membership.id } },
+  });
+
+  if (otherMemberships === 0) {
+    await revokeAllSessionsForUser(userId);
+    await prisma.user.delete({ where: { id: userId } });
+  } else {
+    await prisma.tenantMembership.update({
+      where: { id: membership.id },
+      data: { status: 'removed', isPrimary: false },
+    });
+    await prisma.userSession.updateMany({
+      where: { userId, tenantId: session.tenantId, status: 'ACTIVE' },
+      data: { status: 'REVOKED', revokedAt: new Date() },
+    });
+  }
+
+  const meta = getClientMeta(req);
+  await writeAudit({
+    actorUserId: session.userId,
+    tenantId: session.tenantId,
+    action: 'user.delete',
+    resourceType: 'user',
+    resourceId: userId,
+    result: 'success',
+    details: { username: membership.user.username, removedEntireAccount: otherMemberships === 0 },
+    ...meta,
+  }).catch(() => {});
+
+  return NextResponse.json({ ok: true, id: userId, username: membership.user.username });
+}
