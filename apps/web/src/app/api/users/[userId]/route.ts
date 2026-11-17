@@ -86,6 +86,7 @@ export async function PATCH(
   }
 
   if (hasRole) {
+    // Tenant role only — platform admin (`User.isPlatformAdmin`) cannot be assigned here.
     await prisma.tenantMembership.update({
       where: { id: membership.id },
       data: { role },

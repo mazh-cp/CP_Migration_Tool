@@ -33,6 +33,9 @@ export async function GET() {
       createdAt: m.user.createdAt,
       tenantRole: m.role,
       isPrimary: m.isPrimary,
+      ...(canManagePlatformAdminAccount(session)
+        ? { isPlatformAdmin: m.user.isPlatformAdmin }
+        : {}),
     }))
   );
 }
@@ -47,7 +50,7 @@ export async function POST(req: Request) {
     body = createUserSchema.parse(await req.json());
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: err.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid input', details: err.issues }, { status: 400 });
     }
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
@@ -80,6 +83,8 @@ export async function POST(req: Request) {
       username: body.username,
       email: body.email ?? null,
       passwordHash,
+      // Platform admin is only the env bootstrap account — never granted via user create.
+      isPlatformAdmin: false,
     },
     select: { id: true, username: true, email: true, createdAt: true },
   });

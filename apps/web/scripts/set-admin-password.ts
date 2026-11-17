@@ -40,9 +40,13 @@ async function main() {
     });
     console.log(`Created user "${username}" and set password. You can now log in.`);
   } else {
+    const envUser = process.env.AUTH_USERNAME?.trim();
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash },
+      data: {
+        passwordHash,
+        ...(envUser && username === envUser ? { isPlatformAdmin: true } : {}),
+      },
     });
     console.log(`Password updated for user "${username}". You can now log in.`);
   }

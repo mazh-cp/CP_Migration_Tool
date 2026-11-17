@@ -126,7 +126,7 @@ export function isPasswordAcceptable(password: string, ctx?: PasswordContext): b
 export function makePasswordSchema(ctx?: PasswordContext) {
   return z.string().superRefine((value, refinement) => {
     for (const violation of getPasswordViolations(value, ctx)) {
-      refinement.addIssue({ code: z.ZodIssueCode.custom, message: violation });
+      refinement.addIssue({ code: 'custom', message: violation });
     }
   });
 }

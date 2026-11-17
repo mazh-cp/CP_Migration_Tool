@@ -6,7 +6,7 @@ import { requireProjectAccess } from '@/lib/project-access';
 const overrideSchema = z.object({
   entityType: z.string(),
   sourceId: z.string(),
-  proposedTarget: z.record(z.unknown()),
+  proposedTarget: z.record(z.string(), z.unknown()),
   notes: z.string().optional(),
 });
 

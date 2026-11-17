@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { randomBytes, createHmac } from 'crypto';
 import { getSessionCookieName as getSessionCookieNameFromContext } from './session-context';
 import { PASSWORD_HASH_ROUNDS } from './password-policy';
+import { isEnvBootstrapUsername, isTenantAdministratorRole } from './platform-roles';
 
 /** Hash a plaintext password with the app-wide bcrypt work factor. */
 export function hashPassword(plain: string): Promise<string> {
@@ -144,8 +145,17 @@ export async function findOrCreateUserBySsoId(
     userId: user.id,
     username: user.username,
     tenantId: tenant.id,
-    isAdmin: role === 'admin',
+    isAdmin: isTenantAdministratorRole(role),
   };
+}
+
+/** Env bootstrap account is always the sole platform administrator (`User.isPlatformAdmin`). */
+export async function ensureBootstrapPlatformAdmin(userId: string, username: string): Promise<void> {
+  if (!isEnvBootstrapUsername(username)) return;
+  await prisma.user.updateMany({
+    where: { id: userId, isPlatformAdmin: false },
+    data: { isPlatformAdmin: true },
+  });
 }
 
 const SESSION_SECRET = (() => {
@@ -190,7 +200,7 @@ export async function ensurePrimaryTenantForUser(userId: string): Promise<string
     create: {
       tenantId,
       userId,
-      role: 'admin',
+      role: 'member',
       isPrimary: true,
       status: 'active',
     },
@@ -313,19 +323,31 @@ export async function verifyCredentials(
           data: { passwordHash: hash, isPlatformAdmin: true },
         });
       }
+      await ensureBootstrapPlatformAdmin(user.id, user.username);
       const tenantId = await ensurePrimaryTenantForUser(user.id);
-      return { userId: user.id, username: user.username, isAdmin: true, tenantId };
+      return {
+        userId: user.id,
+        username: user.username,
+        isAdmin: isTenantAdministratorRole('admin'),
+        tenantId,
+      };
     }
   }
   const user = await prisma.user.findUnique({ where: { username: u } });
   if (!user) return null;
   const valid = await bcrypt.compare(p, user.passwordHash);
   if (!valid) return null;
+  await ensureBootstrapPlatformAdmin(user.id, user.username);
   const tenantId = await ensurePrimaryTenantForUser(user.id);
+  const membership = await prisma.tenantMembership.findUnique({
+    where: { tenantId_userId: { tenantId, userId: user.id } },
+    select: { role: true, status: true },
+  });
+  const tenantRole = membership?.status === 'active' ? membership.role : 'member';
   return {
     userId: user.id,
     username: user.username,
-    isAdmin: user.isPlatformAdmin,
+    isAdmin: isTenantAdministratorRole(tenantRole),
     tenantId,
   };
 }

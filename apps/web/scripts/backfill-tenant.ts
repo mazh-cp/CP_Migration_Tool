@@ -33,12 +33,18 @@ async function main() {
   await prisma.validationOverride.updateMany({ where: { tenantId: null }, data: { tenantId } });
   await prisma.job.updateMany({ where: { tenantId: null }, data: { tenantId } });
 
-  const users = await prisma.user.findMany({ select: { id: true } });
+  const users = await prisma.user.findMany({
+    select: { id: true, username: true, isPlatformAdmin: true },
+  });
+  const envBootstrapUser = process.env.AUTH_USERNAME?.trim();
   for (const user of users) {
     const existing = await prisma.tenantMembership.findFirst({
       where: { userId: user.id, tenantId, status: 'active' },
     });
     if (!existing) {
+      const isBootstrap =
+        user.isPlatformAdmin ||
+        !!(envBootstrapUser && user.username === envBootstrapUser);
       await prisma.tenantMembership.upsert({
         where: {
           tenantId_userId: { tenantId, userId: user.id },
@@ -46,12 +52,18 @@ async function main() {
         create: {
           tenantId,
           userId: user.id,
-          role: 'admin',
+          role: isBootstrap ? 'admin' : 'member',
           isPrimary: true,
           status: 'active',
         },
         update: { isPrimary: true, status: 'active' },
       });
+      if (isBootstrap && envBootstrapUser && user.username === envBootstrapUser && !user.isPlatformAdmin) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { isPlatformAdmin: true },
+        });
+      }
       console.log('Added primary membership for user', user.id);
     }
   }

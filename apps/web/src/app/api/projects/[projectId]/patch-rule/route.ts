@@ -58,7 +58,7 @@ export async function POST(
     body = bodySchema.parse(raw);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid request', details: err.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request', details: err.issues }, { status: 400 });
     }
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }

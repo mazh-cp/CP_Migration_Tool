@@ -22,28 +22,39 @@
     "db:studio": "cd apps/web && prisma studio",
     "cleanup": "cd apps/web && npm run cleanup",
     "release:check": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "audit": "npm audit --production",
+    "audit": "npm audit --omit=dev",
+    "audit:ci": "npm audit --omit=dev --audit-level=high",
+    "audit:dev": "npm audit --audit-level=high",
     "precommit": "npm run lint && npm run typecheck",
     "start:express-paloalto": "node server.js"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "prettier": "^3.2.5",
-    "turbo": "^2.3.0"
+    "prettier": "^3.10.1",
+    "turbo": "^2.11.11"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13.0"
   },
-  "packageManager": "npm@10.2.0",
+  "packageManager": "npm@10.9.2",
+  "overrides": {
+    "axios": "$axios",
+    "brace-expansion": "^2.0.2",
+    "esbuild": "^0.28.2",
+    "picomatch": "^4.0.7",
+    "postcss": "^8.5.33",
+    "uuid": "^13.0.2",
+    "vite": "^6.4.4"
+  },
   "dependencies": {
     "@cisco2cp/exporters": "*",
     "@cisco2cp/parsers": "*",
-    "axios": "^1.14.0",
+    "axios": "^1.21.1",
     "bcryptjs": "^3.0.3",
-    "express": "^5.2.1",
+    "express": "^5.3.0",
     "fast-xml-parser": "^5.5.10",
     "joi": "^18.1.2",
     "multer": "^2.1.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.2"
   }
 }
