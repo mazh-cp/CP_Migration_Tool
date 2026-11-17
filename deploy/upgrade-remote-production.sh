@@ -6,8 +6,8 @@
 # GitHub at your chosen ref, then executes it with sudo. No local git clone
 # required on your laptop.
 #
-# Current stack (see CHANGELOG.md, tag v1.5.3+):
-#   • Node.js 22.x LTS (NodeSource) — installer/updater upgrades if < 22
+# Current stack (see CHANGELOG.md; latest features on main):
+#   • Node.js 22.13+ LTS (NodeSource 22.x) — updater upgrades if < 22
 #   • npm ci, Prisma generate + db push, turbo monorepo build (Next.js 15)
 #   • Refreshes systemd unit, restarts cp-migration-tool, health-checks /health
 #
@@ -17,15 +17,15 @@
 #     AUTH_USERNAME / AUTH_PASSWORD (or DB users), COOKIE_SECURE as appropriate
 #
 # Single command (no repo clone on laptop — replace ubuntu@YOUR-VM):
-#   ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.5.3/deploy/upgrade-production.sh | sudo env BRANCH=v1.5.3 DOC_RELEASE_TAG=v1.5.3 bash'
+#   ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-on-vm.sh | sudo bash'
 #
 # Usage (from clone):
 #   REMOTE=ubuntu@203.0.113.10 ./deploy/upgrade-remote-production.sh [BRANCH_OR_TAG]
 #
 # Examples:
-#   REMOTE=ubuntu@vm ./deploy/upgrade-remote-production.sh v1.5.3
 #   REMOTE=ubuntu@vm ./deploy/upgrade-remote-production.sh main
-#   REMOTE=ubuntu@vm DOC_RELEASE_TAG=v1.5.3 ./deploy/upgrade-remote-production.sh main
+#   REMOTE=ubuntu@vm ./deploy/upgrade-remote-production.sh v1.6.1
+#   REMOTE=ubuntu@vm DOC_RELEASE_TAG=v1.6.1 ./deploy/upgrade-remote-production.sh v1.6.1
 #
 # Optional environment (exported before running this script):
 #   REPO_SLUG     — default mazh-cp/CP_Migration_Tool (forks)
@@ -37,11 +37,11 @@
 set -euo pipefail
 
 REMOTE="${REMOTE:?Set REMOTE=user@host (e.g. REMOTE=ubuntu@203.0.113.10)}"
-BRANCH="${1:-v1.5.3}"
+BRANCH="${1:-main}"
 REPO_SLUG="${REPO_SLUG:-mazh-cp/CP_Migration_Tool}"
 DOC_RELEASE_TAG="${DOC_RELEASE_TAG:-$BRANCH}"
 RAW_BASE="https://raw.githubusercontent.com/${REPO_SLUG}/${BRANCH}"
-SCRIPT_URL="${RAW_BASE}/deploy/upgrade-production.sh"
+SCRIPT_URL="${RAW_BASE}/deploy/upgrade-on-vm.sh"
 SSH_OPTS="${SSH_OPTS:--o ServerAliveInterval=30 -o ServerAliveCountMax=120}"
 
 # Optional larger heap for npm run build (server also defaults 6144 MB if unset).

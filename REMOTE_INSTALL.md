@@ -2,7 +2,7 @@
 
 Stable installation for Ubuntu 22.04/24.04 VMs (Azure, AWS, on-prem).
 
-**Runtime:** **Node.js 22.x** LTS. The installer and upgrade scripts install or upgrade Node via NodeSource when needed.
+**Runtime:** **Node.js 22.13+** LTS (NodeSource 22.x). The installer and upgrade scripts install or upgrade Node when needed.
 
 ## One-Command Install
 
@@ -45,27 +45,43 @@ sudo systemctl restart cp-migration-tool
 
 ## One-Command Production Upgrade
 
-Pulls latest `main`, runs `npm ci`, Prisma, build, **refreshes the systemd unit** (avoids stale `ExecStart`), and restarts the service.
+Pulls the chosen git ref from GitHub on the VM, runs `npm ci`, Prisma, build, **refreshes the systemd unit** (avoids stale `ExecStart`), and restarts the service.
 
-### From your laptop — single command (no git clone)
+### On the VM (recommended — run directly on the server)
 
-Replace `ubuntu@YOUR-VM` with your SSH target. Uses `curl` **on the VM** (same as logging in and running the curl upgrade there).
-
-**Pinned release `v1.6.1` (recommended):**
-
-```bash
-ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-production.sh | sudo env BRANCH=v1.6.1 DOC_RELEASE_TAG=v1.6.1 bash'
-```
+Uses [`deploy/upgrade-on-vm.sh`](deploy/upgrade-on-vm.sh) (defaults to **`main`**).
 
 **Latest `main`:**
 
 ```bash
-ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo env BRANCH=main DOC_RELEASE_TAG=main bash'
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-on-vm.sh | sudo bash
 ```
 
-Fork: change `mazh-cp/CP_Migration_Tool` in both URLs to `your-org/your-fork`.
+**Pinned release `v1.6.1`:**
 
-### On the VM (already have a shell on the server)
+```bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-on-vm.sh | sudo env BRANCH=v1.6.1 DOC_RELEASE_TAG=v1.6.1 bash
+```
+
+Fork: `sudo env REPO_SLUG=your-org/your-fork bash` (with the same `curl … | sudo …` pattern).
+
+### From your laptop — single SSH command (no local git clone)
+
+Replace `ubuntu@YOUR-VM` with your SSH target.
+
+**Latest `main`:**
+
+```bash
+ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-on-vm.sh | sudo bash'
+```
+
+**Pinned `v1.6.1`:**
+
+```bash
+ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/deploy/upgrade-on-vm.sh | sudo env BRANCH=v1.6.1 DOC_RELEASE_TAG=v1.6.1 bash'
+```
+
+### Low-level entrypoint (same behavior)
 
 **Latest `main`:**
 

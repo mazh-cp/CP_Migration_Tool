@@ -28,13 +28,19 @@ curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/v1.6.1/de
 
 ---
 
-## Curl upgrade — latest `main`
+## Curl upgrade — latest `main` (recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo env BRANCH=main DOC_RELEASE_TAG=main bash
+curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-on-vm.sh | sudo bash
 ```
 
-Or:
+From your laptop:
+
+```bash
+ssh -t ubuntu@YOUR-VM 'curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-on-vm.sh | sudo bash'
+```
+
+Low-level wrapper (equivalent):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mazh-cp/CP_Migration_Tool/main/deploy/upgrade-production.sh | sudo bash
