@@ -132,6 +132,12 @@ if ! sudo -u "$SERVICE_USER" grep -q 'export async function DELETE' "$USER_DELET
 else
   echo "==> Verified: tenant user DELETE API present in source @ $DEPLOY_SHA"
 fi
+SETTINGS_PAGE="$APP_DIR/apps/web/src/app/(app)/settings/page.tsx"
+if sudo -u "$SERVICE_USER" grep -q 'canDeleteUser' "$SETTINGS_PAGE" 2>/dev/null; then
+  echo "==> Verified: Settings user delete UI (Manage column) present @ $DEPLOY_SHA"
+else
+  echo "WARN: Settings page missing canDeleteUser — upgrade git ref (need d0d1f72+ with visible Delete)."
+fi
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "ERROR: Missing $ENV_FILE"

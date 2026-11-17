@@ -82,6 +82,7 @@ export default function SettingsPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState('');
   const [canManageAppConfig, setCanManageAppConfig] = useState(false);
   const [profileUsername, setProfileUsername] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
@@ -99,6 +100,7 @@ export default function SettingsPage() {
   const [resetPasswordMessage, setResetPasswordMessage] = useState('');
   const [userDeletingId, setUserDeletingId] = useState<string | null>(null);
   const [deleteUserError, setDeleteUserError] = useState('');
+  const [deployGitShaShort, setDeployGitShaShort] = useState('');
 
   // SSO
   const [ssoEnabled, setSsoEnabled] = useState(false);
@@ -121,6 +123,7 @@ export default function SettingsPage() {
       if (cancelled) return;
       setIsAdmin(me.isAdmin ?? false);
       setIsPlatformAdmin(me.isPlatformAdmin ?? false);
+      setCurrentUserId(me.userId ?? '');
       setProfileUsername(me.username ?? '');
       setProfileEmail(me.email ?? '');
       setPinRequired(!!d.pinRequired);
@@ -135,6 +138,14 @@ export default function SettingsPage() {
       setAiValidationEnabled(!!d.aiValidationEnabled);
       setAiValidationOutboundEnabled(!!d.aiValidationOutboundEnabled);
       setOpenAiApiKeyConfigured(!!d.openAiApiKeyConfigured);
+      if (me.isPlatformAdmin) {
+        fetch('/health')
+          .then((r) => (r.ok ? r.json() : {}))
+          .then((h: { gitShaShort?: string }) => {
+            if (!cancelled && h.gitShaShort) setDeployGitShaShort(h.gitShaShort);
+          })
+          .catch(() => {});
+      }
       setLoading(false);
     })();
     return () => {
@@ -243,6 +254,13 @@ export default function SettingsPage() {
     setResetPasswordValue('');
     setResetPasswordError('');
     setResetPasswordMessage('');
+  }
+
+  function canDeleteUser(user: User): boolean {
+    if (!isAdmin) return false;
+    if (user.id === currentUserId) return false;
+    if (user.isPlatformAdmin && !isPlatformAdmin) return false;
+    return true;
   }
 
   async function handleDeleteUser(user: User) {
@@ -677,7 +695,10 @@ export default function SettingsPage() {
             Add users and set <strong>tenant roles</strong>. <strong>Tenant admin</strong> can manage users, SSO, and project membership within this tenant only.
             <strong className="text-slate-300"> Platform administrator</strong> (the env bootstrap account) additionally controls application-wide AI and LiteLLM settings — that role is not assignable here.
             {' '}
-            <strong>Member</strong> and <strong>viewer</strong> have project access only. Tenant admins can <strong>delete</strong> users (not themselves or the platform administrator).
+            <strong>Member</strong> and <strong>viewer</strong> have project access only.{' '}
+            <strong>Tenant admins</strong> and the <strong className="text-slate-300">platform administrator</strong> can{' '}
+            <strong>delete</strong> users using <strong>Delete</strong> in the Manage column (not your own account;
+            tenant admins cannot delete the platform administrator).
           </p>
           {isAdmin && !isPlatformAdmin && (
             <p className="text-slate-500 text-xs mb-3 border border-slate-600/60 rounded-lg px-3 py-2 bg-slate-800/30">
@@ -738,14 +759,13 @@ export default function SettingsPage() {
                 {users.length === 0 ? (
                   <p className="text-slate-500 text-sm p-4">No users yet. Add users above.</p>
                 ) : (
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm table-fixed sm:table-auto">
                     <thead>
                       <tr className="bg-slate-800/80 text-left text-slate-400">
                         <th className="px-4 py-2 font-medium">User</th>
-                        <th className="px-4 py-2 font-medium">Email</th>
+                        <th className="px-4 py-2 font-medium hidden sm:table-cell">Email</th>
                         <th className="px-4 py-2 font-medium">Role</th>
-                        <th className="px-4 py-2 font-medium">Password</th>
-                        <th className="px-4 py-2 font-medium w-24">Actions</th>
+                        <th className="px-4 py-2 font-medium min-w-[11rem] w-[28%]">Manage</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -762,7 +782,7 @@ export default function SettingsPage() {
                               <span className="ml-2 text-xs text-brand-300" title="Primary tenant">●</span>
                             )}
                           </td>
-                          <td className="px-4 py-2 text-slate-400">{u.email || '—'}</td>
+                          <td className="px-4 py-2 text-slate-400 hidden sm:table-cell">{u.email || '—'}</td>
                           <td className="px-4 py-2">
                             <select
                               value={u.tenantRole}
@@ -814,27 +834,33 @@ export default function SettingsPage() {
                                 </div>
                               </form>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => openPasswordReset(u)}
-                                className="flex items-center gap-1 text-xs text-brand-300 hover:text-brand-200"
-                              >
-                                <KeyRound className="w-3.5 h-3.5" />
-                                Reset password
-                              </button>
+                              <div className="flex flex-col items-start gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openPasswordReset(u)}
+                                  className="flex items-center gap-1 text-xs text-brand-300 hover:text-brand-200"
+                                >
+                                  <KeyRound className="w-3.5 h-3.5" />
+                                  Reset password
+                                </button>
+                                {canDeleteUser(u) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteUser(u)}
+                                    disabled={userDeletingId === u.id}
+                                    className="flex items-center gap-1 text-xs text-danger hover:text-red-300 disabled:opacity-50 font-medium"
+                                    title="Remove user from tenant"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-slate-600" title="Cannot delete this account">
+                                    —
+                                  </span>
+                                )}
+                              </div>
                             )}
-                          </td>
-                          <td className="px-4 py-2 align-top">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteUser(u)}
-                              disabled={userDeletingId === u.id}
-                              className="flex items-center gap-1 text-xs text-danger hover:text-red-300 disabled:opacity-50"
-                              title="Remove user from tenant"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Delete
-                            </button>
                           </td>
                         </tr>
                       ))}
@@ -843,6 +869,13 @@ export default function SettingsPage() {
                 )}
               </div>
               {deleteUserError && <p className="text-danger text-sm mt-2">{deleteUserError}</p>}
+              {isPlatformAdmin && deployGitShaShort && (
+                <p className="text-slate-600 text-xs mt-2">
+                  Deployed build: <span className="font-mono text-slate-500">{deployGitShaShort}</span>
+                  {' — '}
+                  user delete needs build <span className="font-mono">d0d1f72</span> or newer with a <strong>Manage</strong> column.
+                </p>
+              )}
             </div>}
 
             <div>
