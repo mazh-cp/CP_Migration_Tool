@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     return NextResponse.json(project);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: err.errors }, { status: 400 });
+      return NextResponse.json({ error: err.issues }, { status: 400 });
     }
     logger.error({ err }, 'Failed to create project');
     return NextResponse.json({ error: 'Failed to create project' }, { status: 500 });

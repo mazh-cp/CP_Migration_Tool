@@ -48,7 +48,7 @@ export async function POST(
     body = postSchema.parse(raw);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid request', details: err.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request', details: err.issues }, { status: 400 });
     }
     return NextResponse.json({ error: 'Expected array of interface mappings' }, { status: 400 });
   }

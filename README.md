@@ -44,7 +44,7 @@ Migrator helps you:
 
 ## Local Development
 
-**Prerequisites:** [Node.js 22.x](https://nodejs.org/) (LTS). With [nvm](https://github.com/nvm-sh/nvm): `nvm install && nvm use`. The repo sets **`engine-strict=true`** in [`.npmrc`](.npmrc) so `npm install` fails if your Node version does not satisfy `package.json` `engines`.
+**Prerequisites:** [Node.js 22.13.0+](https://nodejs.org/) (22 LTS; required by ESLint 9 / `eslint-visitor-keys`). With [nvm](https://github.com/nvm-sh/nvm): `nvm install` then `nvm use` (reads [`.nvmrc`](.nvmrc)). Do **not** pass a literal `22.13.0+` to nvm — use the `.nvmrc` file only. The repo sets **`engine-strict=true`** in [`.npmrc`](.npmrc) so `npm install` fails if Node is below `package.json` `engines`.
 
 ```bash
 # Install

@@ -71,7 +71,7 @@ export async function POST(
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: err.errors }, { status: 400 });
+      return NextResponse.json({ error: err.issues }, { status: 400 });
     }
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('File too large')) {

@@ -58,6 +58,15 @@ Uploaded configs frequently contain credentials. Redaction is applied **before**
 
 ---
 
+## Dependency hygiene
+
+- **Runtime audit:** `npm run audit` or `npm run audit:ci` scans production dependencies only (`--omit=dev`). CI uses `audit:ci` (fail on high+).
+- **Dev toolchain:** `npm run audit:dev` includes build/test tooling; remaining advisories are tracked and cleared when upstream (Next.js, Vitest, Tailwind, ESLint) releases fixes.
+- **Node.js:** Use **22.13.0+** LTS (see `.nvmrc` and `engines`). Required for current ESLint toolchain; older 22.12.x fails `npm install` (`engine-strict`).
+- **Overrides:** Root `package.json` `overrides` pin patched transitive versions (e.g. `postcss`, `axios`, `esbuild`, `uuid`) after `npm audit` review.
+
+---
+
 ## Production Requirements
 
 1. **SESSION_SECRET** — Set and min 32 chars; app fails to start if missing in production

@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     body = bodySchema.parse(await req.json());
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: err.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid input', details: err.issues }, { status: 400 });
     }
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
