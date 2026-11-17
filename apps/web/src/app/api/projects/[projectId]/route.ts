@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { canManageMembers, requireProjectAccess } from '@/lib/project-access';
+import { canDeleteProject, requireProjectAccess } from '@/lib/project-access';
 import { logger } from '@/lib/logger';
 
 export async function GET(
@@ -27,8 +27,11 @@ export async function DELETE(
   const { projectId } = await params;
   const auth = await requireProjectAccess(projectId, true);
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  if (!canManageMembers(auth.role)) {
-    return NextResponse.json({ error: 'Only owner/admin can delete projects' }, { status: 403 });
+  if (!canDeleteProject(auth.session, auth.role)) {
+    return NextResponse.json(
+      { error: 'Only project owner/admin or a tenant administrator can delete projects' },
+      { status: 403 }
+    );
   }
 
   try {

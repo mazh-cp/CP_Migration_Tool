@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { requireTenantSession } from '@/lib/project-access';
+import { canDeleteProject, requireTenantSession, type ProjectRole } from '@/lib/project-access';
 
 const createSchema = z.object({
   name: z.string().min(1).max(200),
@@ -25,7 +25,22 @@ export async function GET() {
       orderBy: { updatedAt: 'desc' },
       include: { _count: { select: { artifacts: true } } },
     });
-    return NextResponse.json(projects as ProjectListItem[]);
+    const memberships = await prisma.projectMember.findMany({
+      where: {
+        userId: session.userId,
+        projectId: { in: projects.map((p) => p.id) },
+      },
+      select: { projectId: true, role: true },
+    });
+    const roleByProjectId = new Map(memberships.map((m) => [m.projectId, m.role as ProjectRole]));
+    const withDeleteFlag = projects.map((p) => {
+      const role = roleByProjectId.get(p.id) ?? ('viewer' as ProjectRole);
+      return {
+        ...p,
+        canDelete: canDeleteProject(session, role),
+      };
+    });
+    return NextResponse.json(withDeleteFlag as (ProjectListItem & { canDelete: boolean })[]);
   } catch (err) {
     logger.error({ err }, 'Failed to list projects');
     return NextResponse.json({ error: 'Failed to list projects' }, { status: 500 });

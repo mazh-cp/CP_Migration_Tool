@@ -5,6 +5,7 @@
 import { prisma } from './prisma';
 import { requireTenantSession as getTenantSessionFromContext, type TenantSession } from './session-context';
 import { requireSupportModeForTenant } from './platform-admin-access';
+import { canManageTenantUsers } from './platform-user-guard';
 
 export type ProjectRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
@@ -69,4 +70,9 @@ export function canEdit(role: ProjectRole | null): boolean {
 
 export function canManageMembers(role: ProjectRole | null): boolean {
   return role === 'owner' || role === 'admin';
+}
+
+/** Delete project: project owner/admin, or tenant/platform administrator for the tenant. */
+export function canDeleteProject(session: TenantSession, role: ProjectRole): boolean {
+  return canManageMembers(role) || canManageTenantUsers(session);
 }

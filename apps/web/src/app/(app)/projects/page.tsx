@@ -10,6 +10,7 @@ interface Project {
   sourceType: string;
   status: string;
   updatedAt: string;
+  canDelete?: boolean;
 }
 
 export default function ProjectsPage() {
@@ -29,7 +30,8 @@ export default function ProjectsPage() {
     try {
       const res = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
       if (!res.ok) {
-        alert('Failed to delete project');
+        const data = await res.json().catch(() => ({}));
+        alert(typeof data.error === 'string' ? data.error : 'Failed to delete project');
         return;
       }
       setProjects((prev) => prev.filter((p) => p.id !== project.id));
@@ -94,16 +96,18 @@ export default function ProjectsPage() {
                 <span className="text-sm text-slate-500">
                   {new Date(p.updatedAt).toLocaleDateString()}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(p)}
-                  disabled={deletingProjectId === p.id}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-300 hover:text-red-200 hover:bg-danger/10 disabled:opacity-50"
-                  title="Delete project"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {deletingProjectId === p.id ? 'Deleting...' : 'Delete'}
-                </button>
+                {p.canDelete !== false && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(p)}
+                    disabled={deletingProjectId === p.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-danger/40 text-danger hover:bg-danger/10 disabled:opacity-50 text-sm font-medium"
+                    title="Delete project"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {deletingProjectId === p.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
