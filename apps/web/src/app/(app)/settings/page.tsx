@@ -38,6 +38,7 @@ interface User {
   createdAt: string;
   tenantRole: string;
   isPrimary: boolean;
+  isPlatformAdmin?: boolean;
 }
 
 interface Project {
@@ -91,6 +92,11 @@ export default function SettingsPage() {
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
   const [roleUpdating, setRoleUpdating] = useState<string | null>(null);
+  const [passwordResetUserId, setPasswordResetUserId] = useState<string | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resetPasswordError, setResetPasswordError] = useState('');
+  const [resetPasswordSaving, setResetPasswordSaving] = useState(false);
+  const [resetPasswordMessage, setResetPasswordMessage] = useState('');
 
   // SSO
   const [ssoEnabled, setSsoEnabled] = useState(false);
@@ -220,6 +226,54 @@ export default function SettingsPage() {
       }
     } finally {
       setRoleUpdating(null);
+    }
+  }
+
+  function openPasswordReset(user: User) {
+    setPasswordResetUserId(user.id);
+    setResetPasswordValue('');
+    setResetPasswordError('');
+    setResetPasswordMessage('');
+  }
+
+  function cancelPasswordReset() {
+    setPasswordResetUserId(null);
+    setResetPasswordValue('');
+    setResetPasswordError('');
+    setResetPasswordMessage('');
+  }
+
+  async function handleAdminPasswordReset(e: React.FormEvent, userId: string, username: string) {
+    e.preventDefault();
+    setResetPasswordError('');
+    setResetPasswordMessage('');
+    if (!resetPasswordValue) {
+      setResetPasswordError('Enter a new password');
+      return;
+    }
+    if (!isPasswordAcceptable(resetPasswordValue, { username })) {
+      setResetPasswordError('Password does not meet the complexity requirements shown below');
+      return;
+    }
+    setResetPasswordSaving(true);
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: resetPasswordValue }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResetPasswordError(data.error || 'Failed to reset password');
+        if (data.requirements) {
+          setResetPasswordError(`${data.error}: ${(data.requirements as string[]).join('; ')}`);
+        }
+        return;
+      }
+      setResetPasswordMessage(`Password updated for ${username}. Their other sessions were signed out.`);
+      setResetPasswordValue('');
+    } finally {
+      setResetPasswordSaving(false);
     }
   }
 
@@ -597,7 +651,10 @@ export default function SettingsPage() {
             Users & Roles
           </h2>
           <p className="text-slate-400 text-sm mb-4">
-            Add users and set tenant roles. <strong>Admin</strong> can manage users and settings; <strong>member</strong> and <strong>viewer</strong> have project access only. Each user has one primary tenant.
+            Add users and set <strong>tenant roles</strong>. <strong>Tenant admin</strong> can manage users, SSO, and project membership within this tenant only.
+            <strong className="text-slate-300"> Platform administrator</strong> (the env bootstrap account) additionally controls application-wide AI and LiteLLM settings — that role is not assignable here.
+            {' '}
+            <strong>Member</strong> and <strong>viewer</strong> have project access only.
           </p>
           {isAdmin && !isPlatformAdmin && (
             <p className="text-slate-500 text-xs mb-3 border border-slate-600/60 rounded-lg px-3 py-2 bg-slate-800/30">
@@ -664,6 +721,7 @@ export default function SettingsPage() {
                         <th className="px-4 py-2 font-medium">User</th>
                         <th className="px-4 py-2 font-medium">Email</th>
                         <th className="px-4 py-2 font-medium">Role</th>
+                        <th className="px-4 py-2 font-medium">Password</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -671,6 +729,11 @@ export default function SettingsPage() {
                         <tr key={u.id} className="border-t border-slate-700">
                           <td className="px-4 py-2">
                             <span className="font-medium">{u.username}</span>
+                            {u.isPlatformAdmin && (
+                              <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-300">
+                                Platform
+                              </span>
+                            )}
                             {u.isPrimary && (
                               <span className="ml-2 text-xs text-brand-300" title="Primary tenant">●</span>
                             )}
@@ -683,10 +746,59 @@ export default function SettingsPage() {
                               disabled={roleUpdating === u.id}
                               className="px-2 py-1 bg-slate-800 border border-slate-600 rounded text-sm disabled:opacity-50"
                             >
-                              <option value="admin">Admin</option>
+                              <option value="admin">Tenant admin</option>
                               <option value="member">Member</option>
                               <option value="viewer">Viewer</option>
                             </select>
+                          </td>
+                          <td className="px-4 py-2 align-top">
+                            {passwordResetUserId === u.id ? (
+                              <form
+                                onSubmit={(e) => handleAdminPasswordReset(e, u.id, u.username)}
+                                className="space-y-2 min-w-[14rem]"
+                              >
+                                <input
+                                  type="password"
+                                  value={resetPasswordValue}
+                                  onChange={(e) => setResetPasswordValue(e.target.value)}
+                                  placeholder="New password"
+                                  autoComplete="new-password"
+                                  className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-sm"
+                                />
+                                <PasswordChecklist password={resetPasswordValue} username={u.username} />
+                                {resetPasswordError && (
+                                  <p className="text-danger text-xs">{resetPasswordError}</p>
+                                )}
+                                {resetPasswordMessage && (
+                                  <p className="text-success text-xs">{resetPasswordMessage}</p>
+                                )}
+                                <div className="flex gap-2">
+                                  <button
+                                    type="submit"
+                                    disabled={resetPasswordSaving}
+                                    className="px-2 py-1 text-xs bg-brand-500 hover:bg-brand-400 rounded disabled:opacity-50"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelPasswordReset}
+                                    className="px-2 py-1 text-xs border border-slate-600 rounded"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openPasswordReset(u)}
+                                className="flex items-center gap-1 text-xs text-brand-300 hover:text-brand-200"
+                              >
+                                <KeyRound className="w-3.5 h-3.5" />
+                                Reset password
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
