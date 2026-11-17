@@ -128,6 +128,7 @@ Uses `curl` on the remote host; set `REPO_SLUG=org/repo` for a fork. Optional: `
 | Login OK but redirects to login | Using HTTP (not HTTPS). Add `COOKIE_SECURE=false` to .env and restart |
 | "Invalid credentials" (authEnvSet: true) | Run `curl http://YOUR-VM:3000/api/auth/diagnostic` — check `authPasswordLength`; must match password you type (e.g. "changeme" = 8) |
 | Health check fails | `sudo systemctl status cp-migration-tool`; check logs |
+| UI missing new features after upgrade | Hard-refresh (Ctrl+Shift+R). On VM: `curl -sS http://127.0.0.1:3000/health` — expect `gitShaShort` ≥ `8e8b345` for user delete. Re-run [upgrade-on-vm](deploy/upgrade-on-vm.sh). Confirm you are **tenant admin** (Settings → Users). |
 | `systemctl` status **203/EXEC** | `ExecStart` path invalid or `start.sh` not executable. Run the **upgrade script** above (it reinstalls the unit and `chmod +x start.sh`). Verify: `test -x /opt/cp_migration_tool/apps/web/start.sh` |
 | `Failed to find Server Action` in logs after deploy | Harmless noise from browsers still on an old JS bundle; hard refresh (Ctrl+Shift+R) or clear site data. |
 | `Unexpected token '<', "<!DOCTYPE"...` when importing/parsing | The browser received an **HTML** error page (not JSON). Often a **reverse proxy** (Nginx, Azure App Gateway, load balancer) rejecting a large POST or returning 502/504 HTML. See **Large uploads / HTML instead of JSON** below. |

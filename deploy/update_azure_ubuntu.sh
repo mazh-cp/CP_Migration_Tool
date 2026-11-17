@@ -99,6 +99,13 @@ if [ "$NEED_NODE" -eq 1 ]; then
   apt-get install -y nodejs
 fi
 echo "==> Node $(node -v), npm $(npm -v)"
+NODE_MINOR="$(node -p "parseInt(process.versions.node.split('.')[1],10)" 2>/dev/null || echo 0)"
+if [ "$(node -p "parseInt(process.versions.node.split('.')[0],10)")" -eq 22 ] && [ "${NODE_MINOR:-0}" -lt 13 ]; then
+  echo "==> Node $(node -v) is below required 22.13.x (see package.json engines); upgrading NodeSource 22.x..."
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y nodejs
+  echo "==> Node after upgrade: $(node -v), npm $(npm -v)"
+fi
 
 echo "==> Updating repository..."
 cd "$APP_DIR"
@@ -118,6 +125,13 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"
 DEPLOY_SHA="$(sudo -u "$SERVICE_USER" git -C "$APP_DIR" rev-parse --short HEAD)"
 DEPLOY_FULL_SHA="$(sudo -u "$SERVICE_USER" git -C "$APP_DIR" rev-parse HEAD)"
 echo "==> Checked out $BRANCH @ $DEPLOY_SHA ($DEPLOY_FULL_SHA)"
+
+USER_DELETE_API="$APP_DIR/apps/web/src/app/api/users/[userId]/route.ts"
+if ! sudo -u "$SERVICE_USER" grep -q 'export async function DELETE' "$USER_DELETE_API" 2>/dev/null; then
+  echo "WARN: User DELETE API not found at expected path (older checkout?). Continuing build."
+else
+  echo "==> Verified: tenant user DELETE API present in source @ $DEPLOY_SHA"
+fi
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "ERROR: Missing $ENV_FILE"
@@ -145,10 +159,18 @@ sudo -u "$SERVICE_USER" npx prisma generate
 sudo -u "$SERVICE_USER" npx prisma db push --accept-data-loss
 cd "$APP_DIR"
 
+echo "==> Clearing Next/Turbo build caches (avoids stale UI after git pull)..."
+rm -rf "$APP_DIR/apps/web/.next" "$APP_DIR/.turbo" "$APP_DIR/node_modules/.cache"
+
 # Next/turbo build can exceed default V8 heap on small VMs (aligns with CI).
 NODE_BUILD_OPTS="${NODE_OPTIONS:---max-old-space-size=6144}"
 echo "==> Building application (NODE_OPTIONS=$NODE_BUILD_OPTS)..."
 sudo -u "$SERVICE_USER" env NODE_OPTIONS="$NODE_BUILD_OPTS" npm run build
+
+DEPLOY_REV_FILE="$APP_DIR/apps/web/data/deploy-revision.txt"
+printf '%s %s %s\n' "$DEPLOY_FULL_SHA" "$DEPLOY_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$DEPLOY_REV_FILE"
+chown "$SERVICE_USER:$SERVICE_USER" "$DEPLOY_REV_FILE"
+echo "==> Wrote deploy revision to apps/web/data/deploy-revision.txt ($DEPLOY_SHA)"
 
 HEALTH_PORT="$(derive_port_for_health)"
 
