@@ -256,9 +256,15 @@ export default function SettingsPage() {
     setResetPasswordMessage('');
   }
 
+  function isSelfUser(user: User): boolean {
+    if (currentUserId && user.id === currentUserId) return true;
+    const me = profileUsername.trim().toLowerCase();
+    return me.length > 0 && user.username.trim().toLowerCase() === me;
+  }
+
   function canDeleteUser(user: User): boolean {
     if (!isAdmin) return false;
-    if (user.id === currentUserId) return false;
+    if (isSelfUser(user)) return false;
     if (user.isPlatformAdmin && !isPlatformAdmin) return false;
     return true;
   }
@@ -759,13 +765,13 @@ export default function SettingsPage() {
                 {users.length === 0 ? (
                   <p className="text-slate-500 text-sm p-4">No users yet. Add users above.</p>
                 ) : (
-                  <table className="w-full text-sm table-fixed sm:table-auto">
+                  <table className="w-full min-w-[36rem] text-sm">
                     <thead>
                       <tr className="bg-slate-800/80 text-left text-slate-400">
                         <th className="px-4 py-2 font-medium">User</th>
                         <th className="px-4 py-2 font-medium hidden sm:table-cell">Email</th>
                         <th className="px-4 py-2 font-medium">Role</th>
-                        <th className="px-4 py-2 font-medium min-w-[11rem] w-[28%]">Manage</th>
+                        <th className="px-4 py-2 font-medium min-w-[12rem]">Manage</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -795,7 +801,7 @@ export default function SettingsPage() {
                               <option value="viewer">Viewer</option>
                             </select>
                           </td>
-                          <td className="px-4 py-2 align-top">
+                          <td className="px-4 py-2 align-top min-w-[12rem]">
                             {passwordResetUserId === u.id ? (
                               <form
                                 onSubmit={(e) => handleAdminPasswordReset(e, u.id, u.username)}
@@ -848,17 +854,17 @@ export default function SettingsPage() {
                                     type="button"
                                     onClick={() => handleDeleteUser(u)}
                                     disabled={userDeletingId === u.id}
-                                    className="flex items-center gap-1 text-xs text-danger hover:text-red-300 disabled:opacity-50 font-medium"
+                                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border border-danger/40 text-danger hover:bg-danger/10 disabled:opacity-50"
                                     title="Remove user from tenant"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
-                                    Delete
+                                    Delete user
                                   </button>
-                                ) : (
-                                  <span className="text-xs text-slate-600" title="Cannot delete this account">
-                                    —
-                                  </span>
-                                )}
+                                ) : isSelfUser(u) ? (
+                                  <span className="text-xs text-slate-500">Cannot delete your account</span>
+                                ) : u.isPlatformAdmin ? (
+                                  <span className="text-xs text-slate-500">Protected platform account</span>
+                                ) : null}
                               </div>
                             )}
                           </td>
@@ -872,8 +878,8 @@ export default function SettingsPage() {
               {isPlatformAdmin && deployGitShaShort && (
                 <p className="text-slate-600 text-xs mt-2">
                   Deployed build: <span className="font-mono text-slate-500">{deployGitShaShort}</span>
-                  {' — '}
-                  user delete needs build <span className="font-mono">d0d1f72</span> or newer with a <strong>Manage</strong> column.
+                  . Use the <strong className="text-slate-400">Manage</strong> column:{' '}
+                  <strong className="text-slate-400">Delete user</strong> appears under Reset password for each row except your own.
                 </p>
               )}
             </div>}
