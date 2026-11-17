@@ -56,7 +56,11 @@ async function main() {
           isPrimary: true,
           status: 'active',
         },
-        update: { isPrimary: true, status: 'active' },
+        update: {
+          isPrimary: true,
+          status: 'active',
+          ...(isBootstrap ? { role: 'admin' as const } : {}),
+        },
       });
       if (isBootstrap && envBootstrapUser && user.username === envBootstrapUser && !user.isPlatformAdmin) {
         await prisma.user.update({
@@ -65,6 +69,22 @@ async function main() {
         });
       }
       console.log('Added primary membership for user', user.id);
+    }
+  }
+
+  const platformAdmins = users.filter((u) => u.isPlatformAdmin).map((u) => u.id);
+  if (platformAdmins.length > 0) {
+    const fixed = await prisma.tenantMembership.updateMany({
+      where: {
+        tenantId,
+        userId: { in: platformAdmins },
+        status: 'active',
+        role: { not: 'admin' },
+      },
+      data: { role: 'admin' },
+    });
+    if (fixed.count > 0) {
+      console.log('Promoted', fixed.count, 'platform admin tenant membership(s) to admin');
     }
   }
 

@@ -734,7 +734,7 @@ export default function SettingsPage() {
 
             {isAdmin && <div>
               <h3 className="text-sm font-medium text-slate-300 mb-2">Tenant users & roles</h3>
-              <div className="rounded-lg border border-slate-700 overflow-hidden">
+              <div className="rounded-lg border border-slate-700 overflow-x-auto">
                 {users.length === 0 ? (
                   <p className="text-slate-500 text-sm p-4">No users yet. Add users above.</p>
                 ) : (

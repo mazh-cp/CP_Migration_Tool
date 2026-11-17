@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
 import { requireTenantSession } from '@/lib/project-access';
-import { canManagePlatformAdminAccount } from '@/lib/platform-user-guard';
+import { canManagePlatformAdminAccount, canManageTenantUsers } from '@/lib/platform-user-guard';
 import { getPasswordViolations, PASSWORD_MAX_LENGTH } from '@/lib/password-policy';
 
 const createUserSchema = z.object({
@@ -15,7 +15,7 @@ const createUserSchema = z.object({
 export async function GET() {
   const session = await requireTenantSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!canManageTenantUsers(session)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const memberships = await prisma.tenantMembership.findMany({
     where: { tenantId: session.tenantId, status: 'active' },
@@ -43,7 +43,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await requireTenantSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!canManageTenantUsers(session)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   let body: z.infer<typeof createUserSchema>;
   try {

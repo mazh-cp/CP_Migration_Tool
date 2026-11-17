@@ -14,6 +14,11 @@ export function canManagePlatformAdminAccount(session: TenantSession): boolean {
   return session.isPlatformAdmin === true;
 }
 
+/** Tenant user management (Settings → Users): tenant admins and platform administrator. */
+export function canManageTenantUsers(session: TenantSession): boolean {
+  return session.role === 'admin' || session.isPlatformAdmin;
+}
+
 export async function assertTenantAdminCanManageUser(
   session: TenantSession,
   targetUserId: string

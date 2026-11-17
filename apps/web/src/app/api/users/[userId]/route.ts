@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenantSession } from '@/lib/project-access';
-import { assertTenantAdminCanManageUser } from '@/lib/platform-user-guard';
+import { assertTenantAdminCanManageUser, canManageTenantUsers } from '@/lib/platform-user-guard';
 import { hashPassword, revokeAllSessionsForUser } from '@/lib/auth';
 import { getPasswordViolations, PASSWORD_MAX_LENGTH } from '@/lib/password-policy';
 import { writeAudit, getClientMeta } from '@/lib/audit';
@@ -14,7 +14,7 @@ export async function PATCH(
 ) {
   const session = await requireTenantSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!canManageTenantUsers(session)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { userId } = await params;
   const guard = await assertTenantAdminCanManageUser(session, userId);
@@ -107,7 +107,7 @@ export async function DELETE(
 ) {
   const session = await requireTenantSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!canManageTenantUsers(session)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { userId } = await params;
   if (userId === session.userId) {

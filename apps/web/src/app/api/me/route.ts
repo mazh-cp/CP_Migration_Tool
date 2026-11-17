@@ -3,6 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { requireTenantSession } from '@/lib/project-access';
+import { canManageTenantUsers } from '@/lib/platform-user-guard';
 import { hashPassword, revokeAllSessionsForUser } from '@/lib/auth';
 import { getPasswordViolations, PASSWORD_MAX_LENGTH } from '@/lib/password-policy';
 import { writeAudit, getClientMeta } from '@/lib/audit';
@@ -26,7 +27,7 @@ export async function GET() {
     tenantId: session.tenantId,
     role: session.role,
     email: session.email,
-    isAdmin: session.role === 'admin',
+    isAdmin: canManageTenantUsers(session),
     isPlatformAdmin: session.isPlatformAdmin,
   });
 }

@@ -158,6 +158,25 @@ export async function ensureBootstrapPlatformAdmin(userId: string, username: str
   });
 }
 
+/** Platform admins must be tenant admins so Settings and user APIs stay consistent. */
+export async function ensurePlatformAdminTenantRole(userId: string): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isPlatformAdmin: true },
+  });
+  if (!user?.isPlatformAdmin) return;
+  const tenantId = await getDefaultTenantId();
+  await prisma.tenantMembership.updateMany({
+    where: {
+      tenantId,
+      userId,
+      status: 'active',
+      role: { not: 'admin' },
+    },
+    data: { role: 'admin' },
+  });
+}
+
 const SESSION_SECRET = (() => {
   const secret = process.env.SESSION_SECRET;
   if (process.env.NODE_ENV === 'production' && (!secret || secret.length < 32)) {
@@ -313,7 +332,7 @@ export async function verifyCredentials(
         await prisma.tenantMembership.upsert({
           where: { tenantId_userId: { tenantId, userId: user.id } },
           create: { tenantId, userId: user.id, role: 'admin', isPrimary: true, status: 'active' },
-          update: {},
+          update: { role: 'admin', status: 'active', isPrimary: true },
         });
       } else {
         // Bootstrap only: keep DB password in sync with .env until the admin
@@ -324,11 +343,12 @@ export async function verifyCredentials(
         });
       }
       await ensureBootstrapPlatformAdmin(user.id, user.username);
+      await ensurePlatformAdminTenantRole(user.id);
       const tenantId = await ensurePrimaryTenantForUser(user.id);
       return {
         userId: user.id,
         username: user.username,
-        isAdmin: isTenantAdministratorRole('admin'),
+        isAdmin: true,
         tenantId,
       };
     }
@@ -338,16 +358,19 @@ export async function verifyCredentials(
   const valid = await bcrypt.compare(p, user.passwordHash);
   if (!valid) return null;
   await ensureBootstrapPlatformAdmin(user.id, user.username);
+  await ensurePlatformAdminTenantRole(user.id);
   const tenantId = await ensurePrimaryTenantForUser(user.id);
   const membership = await prisma.tenantMembership.findUnique({
     where: { tenantId_userId: { tenantId, userId: user.id } },
     select: { role: true, status: true },
   });
   const tenantRole = membership?.status === 'active' ? membership.role : 'member';
+  const isAdmin =
+    isTenantAdministratorRole(tenantRole) || user.isPlatformAdmin === true;
   return {
     userId: user.id,
     username: user.username,
-    isAdmin: isTenantAdministratorRole(tenantRole),
+    isAdmin,
     tenantId,
   };
 }

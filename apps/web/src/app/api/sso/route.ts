@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenantSession } from '@/lib/project-access';
+import { canManageTenantUsers } from '@/lib/platform-user-guard';
 
 export async function GET() {
   const session = await requireTenantSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!canManageTenantUsers(session)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const idp = await prisma.identityProvider.findFirst({
     where: { tenantId: session.tenantId },
@@ -42,7 +43,7 @@ const putSchema = {
 export async function PUT(req: Request) {
   const session = await requireTenantSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!canManageTenantUsers(session)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   let body: { enabled?: boolean; type?: string | null; config?: Record<string, unknown> | null };
   try {

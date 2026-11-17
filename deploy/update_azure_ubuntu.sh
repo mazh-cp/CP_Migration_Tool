@@ -157,6 +157,16 @@ echo "==> Running Prisma generate + db push..."
 cd "$APP_DIR/apps/web"
 sudo -u "$SERVICE_USER" npx prisma generate
 sudo -u "$SERVICE_USER" npx prisma db push --accept-data-loss
+
+echo "==> Ensuring platform admins have tenant admin role (Settings user management)..."
+DB_URL="$(grep -E '^DATABASE_URL=' "$ENV_FILE" | cut -d= -f2- | tr -d '\r' | sed 's/^["'\'']//;s/["'\'']$//')"
+DB_FILE="${DB_URL#file:}"
+if [ -n "$DB_FILE" ] && [ -f "$DB_FILE" ] && command -v sqlite3 >/dev/null 2>&1; then
+  sqlite3 "$DB_FILE" "UPDATE TenantMembership SET role='admin' WHERE status='active' AND userId IN (SELECT id FROM User WHERE isPlatformAdmin=1) AND role!='admin';" || true
+else
+  echo "    (skipped — sqlite DB not found or sqlite3 missing; log in once as platform admin after deploy)"
+fi
+
 cd "$APP_DIR"
 
 echo "==> Clearing Next/Turbo build caches (avoids stale UI after git pull)..."
